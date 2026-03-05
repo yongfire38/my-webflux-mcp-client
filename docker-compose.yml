@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16  # PostgreSQL 16 (ChatMemory JDBC 저장용)
+    container_name: mcp-client-postgres
+    environment:
+      POSTGRES_DB: chatdb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - chatdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  chatdata:

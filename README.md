@@ -12,6 +12,33 @@ WebFlux MCP 서버의 Tool을 사용하여 로컬 LLM이 외부 API 데이터를
 - **MCP Tool Integration**: 원격 MCP 서버의 Tool을 LLM이 동적으로 사용
 - **Production Ready**: Spring AI 공식 권장 방식
 
+## 환경 설정
+
+### 표준프레임워크 실행환경 5.0 (Boot 적용)
+
+| 항목 | 버전 |
+| :--- | :--- |
+| JDK | 17 |
+| Jakarta EE | 10 |
+| Servlet | 6.0 |
+| Spring Framework | 6.2.11 |
+| Spring Boot | 3.5.6 |
+| Spring AI | 1.1.2 |
+
+### 개발 및 빌드 도구
+
+| 항목 | 버전 |
+| :--- | :--- |
+| Maven | 3.9.9 |
+| Docker | 28.0.4 |
+
+### 외부 서비스
+
+| 항목 | 버전 | 비고 |
+| :--- | :--- | :--- |
+| Ollama | 0.16.0 | LLM 모델 서빙 |
+| PostgreSQL | 16 | Docker 이미지: `postgres:16` (포트 5433) |
+
 ## 동작 흐름 (Reactive)
 
 ```
