@@ -1,411 +1,235 @@
-# WebFlux MCP Client
+# my-webflux-mcp-client
 
-Spring AI MCP Client with WebFlux (Reactive) and Ollama LLM 샘플 프로젝트입니다.
+Spring AI MCP 클라이언트 기반의 RAG 채팅 애플리케이션입니다.
+Ollama 로컬 LLM과 MCP 서버(my-webflux-mcp-server)를 연결해, 채팅 UI에서 문서 기반 질의응답과 일반 대화를 모두 지원합니다.
 
-WebFlux MCP 서버의 Tool을 사용하여 로컬 LLM이 외부 API 데이터를 활용할 수 있도록 합니다.
+---
 
-## 특징
+## 프로젝트 개요
 
-- **Reactive Stack**: Spring WebFlux 기반 완전 논블로킹 아키텍처
-- **비동기 처리**: Mono/Flux를 사용한 리액티브 프로그래밍
-- **고성능**: 적은 스레드로 많은 동시 요청 처리
-- **MCP Tool Integration**: 원격 MCP 서버의 Tool을 LLM이 동적으로 사용
-- **Production Ready**: Spring AI 공식 권장 방식
+이 애플리케이션은 사용자가 웹 브라우저에서 직접 사용하는 채팅 인터페이스입니다.
+두 가지 채팅 모드를 제공합니다.
 
-## 환경 설정
+1. **RAG 채팅**: 질문을 보내면 MCP 서버의 `searchDocuments` 도구를 **강제 선호출**해 관련 문서를 먼저 검색한 후, 그 내용을 system 메시지로 주입하여 Ollama LLM이 답변합니다.
+2. **일반 채팅**: MCP 도구 목록 전체를 LLM에 제공하되, 호출 여부는 LLM이 스스로 판단합니다.
 
-### 표준프레임워크 실행환경 5.0 (Boot 적용)
+또한 문서 업로드 UI를 통해 PDF/마크다운 파일을 MCP 서버의 벡터 DB에 직접 임베딩할 수 있습니다.
 
-| 항목 | 버전 |
-| :--- | :--- |
-| JDK | 17 |
-| Jakarta EE | 10 |
-| Servlet | 6.0 |
-| Spring Framework | 6.2.11 |
-| Spring Boot | 3.5.6 |
+---
+
+## 환경
+
+| 항목 | 값 |
+|------|-----|
+| Java | 17 |
+| Spring Boot | 3.2.x |
 | Spring AI | 1.1.2 |
+| 서버 포트 | 8080 |
+| MCP 서버 연결 | http://localhost:9090 (ASYNC / streamable-http) |
+| 채팅 DB | PostgreSQL (localhost:5433, DB: chatdb) |
+| Ollama | http://localhost:11434, 기본 모델: qwen3-4b:Q4_K_M |
+| 채팅 UI | http://localhost:8080 |
+| 문서 업로드 UI | http://localhost:8080/upload |
 
-### 개발 및 빌드 도구
+---
 
-| 항목 | 버전 |
-| :--- | :--- |
-| Maven | 3.9.9 |
-| Docker | 28.0.4 |
+## 주요 기능
 
-### 외부 서비스
+### 채팅 UI (`/` → chat.html)
 
-| 항목 | 버전 | 비고 |
-| :--- | :--- | :--- |
-| Ollama | 0.16.0 | LLM 모델 서빙 |
-| PostgreSQL | 16 | Docker 이미지: `postgres:16` (포트 5433) |
+- **RAG 탭**: `searchDocuments` 도구를 강제 선호출 → 검색 결과를 system 메시지로 주입 → LLM 답변 스트리밍. 문서 기반의 정확한 답변에 적합합니다.
+- **일반 채팅 탭**: 전체 MCP 도구를 제공하고 LLM이 필요 시 자율 호출. 자유로운 대화에 적합합니다. (예: "지금 서울 시간은?" → LLM이 `getCurrentDateTimeWithZone` 호출)
+- **세션별 대화 히스토리**: PostgreSQL JDBC ChatMemory로 대화를 영속화합니다.
+- **Ollama 모델 선택**: 드롭다운으로 설치된 Ollama 모델을 실시간 전환합니다.
+- **마크다운 렌더링**: LLM 응답을 HTML로 렌더링합니다.
 
-## 동작 흐름 (Reactive)
+### 문서 업로드 UI (`/upload` → upload.html)
 
-```
-[사용자]
-   ↓
-[REST API /api/chat] (Reactive)
-   ↓
-[ChatController] → Mono<ChatResponse>
-   ↓
-[ChatService] → Mono<String>
-   ↓ (subscribeOn: boundedElastic)
-[Ollama LLM] ←→ [AsyncMcpToolCallbackProvider] ←→ [MCP Server (http://localhost:9090)]
-   ↓ (블로킹 작업을 별도 스레드에서 실행)     ↓
-[Mono 응답]                              [Tools: getTouristWeatherIndex, getCityInfo, getCurrentTime]
-```
+- 파일 선택 또는 드래그앤드롭으로 업로드
+- `DocumentUploadController`가 파일을 읽어 base64로 인코딩 후 MCP `uploadAndIndexDocument` 도구 호출
+- 임베딩 완료 후 결과를 반환합니다 (동기 대기 방식)
+
+### MCP 이벤트 핸들러 (McpClientEventHandler.java)
+
+서버에서 발생하는 MCP 이벤트를 수신해 처리합니다.
+
+| 어노테이션 | 역할 |
+|-----------|------|
+| `@McpLogging` | 서버 MCP 로그를 수신해 클라이언트 SLF4J 로거로 출력합니다. |
+| `@McpToolListChanged` | 서버 도구 목록 변경 시 감지합니다. |
+| `@McpResourceListChanged` | 서버 리소스 변경(문서 인덱싱 완료 등) 시 감지합니다. |
+| `@McpPromptListChanged` | 서버 프롬프트 변경 시 감지합니다. |
+| `@McpSampling` | 서버가 LLM 추론을 요청할 때 Ollama에 위임합니다. `uploadAndIndexDocument`의 문서 요약 요청이 이 경로로 처리됩니다. |
+
+---
+
+## REST API
+
+### 채팅
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| `GET` | `/api/chat/rag/stream` | RAG 채팅 스트리밍 (SSE). 파라미터: `message`, `sessionId`, `model` |
+| `GET` | `/api/chat/simple/stream` | 일반 채팅 스트리밍 (SSE). 파라미터: `message`, `sessionId`, `model` |
+
+### 세션 관리
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| `POST` | `/api/chat/sessions` | 새 세션 생성 |
+| `GET` | `/api/chat/sessions` | 세션 목록 조회 |
+| `GET` | `/api/chat/sessions/{id}` | 특정 세션 조회 |
+| `GET` | `/api/chat/sessions/{id}/messages` | 세션의 메시지 목록 조회 |
+| `PUT` | `/api/chat/sessions/{id}/title` | 세션 제목 변경 |
+| `DELETE` | `/api/chat/sessions/{id}` | 세션 삭제 |
+
+### 문서 및 모델
+
+| 메서드 | 경로 | 설명 |
+|--------|------|------|
+| `POST` | `/api/documents/upload` | 파일 업로드 후 MCP 임베딩. 완료까지 대기 후 결과 반환. |
+| `POST` | `/api/documents/index-local` | MCP 서버 로컬 파일 인덱싱 요청 |
+| `GET` | `/api/ollama/models` | 현재 Ollama에 설치된 모델 목록 조회 |
+
+---
 
 ## 프로젝트 구조
 
 ```
 my-webflux-mcp-client/
-├── pom.xml                                    # Maven 설정 (WebFlux, MCP Client)
-├── README.md
 └── src/main/
     ├── java/com/example/client/
-    │   ├── ClientApplication.java             # Main Application
+    │   ├── ClientApplication.java
     │   ├── config/
-    │   │   ├── OllamaConfig.java              # Ollama API 설정
-    │   │   └── SwaggerConfig.java             # Swagger 설정
+    │   │   ├── ChatClientConfig.java          # ChatClient, JDBC ChatMemory, MessageChatMemoryAdvisor 설정
+    │   │   ├── OllamaConfig.java              # Ollama ChatModel 설정
+    │   │   ├── SwaggerConfig.java
+    │   │   └── EgovCommonConfig.java
+    │   ├── context/
+    │   │   └── SessionContext.java            # ThreadLocal 세션 컨텍스트 (보조용)
     │   ├── controller/
-    │   │   └── ChatController.java            # Reactive REST API (Mono 반환)
+    │   │   ├── ChatController.java            # /api/chat/rag/stream, /simple/stream
+    │   │   ├── ChatPageController.java        # / → chat.html
+    │   │   ├── ChatSessionController.java     # 세션 CRUD API
+    │   │   ├── DocumentUploadController.java  # 파일 업로드 → MCP 도구 호출
+    │   │   ├── OllamaModelController.java     # Ollama 모델 목록
+    │   │   └── UploadPageController.java      # /upload → upload.html
+    │   ├── dto/
+    │   │   ├── ChatSessionDto.java
+    │   │   └── ChatMessageDto.java
+    │   ├── entity/
+    │   │   └── ChatSessionEntity.java         # JPA 엔티티 (spring_ai_chat_sessions)
+    │   ├── handler/
+    │   │   └── McpClientEventHandler.java     # @McpLogging, @McpSampling 등 MCP 이벤트 처리
+    │   ├── repository/
+    │   │   └── ChatSessionRepository.java
     │   └── service/
-    │       └── ChatService.java               # Reactive LLM + MCP Tool 통합
+    │       ├── ChatService.java
+    │       ├── ChatSessionService.java
+    │       ├── OllamaModelService.java
+    │       └── impl/
+    │           ├── ChatServiceImpl.java        # RAG(강제 선호출) / Simple(LLM 자율) 구현
+    │           ├── ChatSessionServiceImpl.java
+    │           └── OllamaModelServiceImpl.java
     └── resources/
-        └── application.properties             # Ollama, MCP 서버, 타임아웃 설정
+        ├── application.yml
+        ├── static/js/marked.min.js            # 마크다운 렌더링 라이브러리
+        └── templates/
+            ├── chat.html                      # 채팅 UI
+            └── upload.html                    # 문서 업로드 UI
 ```
+
+---
 
 ## 사전 준비
 
-### 1. Ollama 설치 및 모델 다운로드
+### 1. MCP 서버 실행
+
+이 클라이언트는 my-webflux-mcp-server가 먼저 실행 중이어야 합니다.
 
 ```bash
-# Ollama 설치 (https://ollama.com/download)
-
-# 모델 다운로드 (Tool Calling 지원 모델 필요)
-ollama pull qwen2.5:7b
-
-# Ollama 서버 실행 확인
-ollama serve
+cd C:/workspace-team/my-webflux-mcp-server
+mvn clean package -DskipTests
+java -jar target/my-webflux-mcp-server-*.jar
 ```
 
-Ollama 서버가 http://localhost:11434 에서 실행 중이어야 합니다.
+### 2. PostgreSQL (chatdb)
 
-### 2. MCP 서버 실행
-
-먼저 WebFlux MCP 서버를 실행해야 합니다:
+세션 정보와 채팅 메모리를 저장하는 전용 DB입니다. MCP 서버의 ragdb(5432)와 별개입니다.
 
 ```bash
-cd C:\workspace-test\webflux-mcp-sample\my-webflux-mcp-server
-mvn clean package
-java -jar target/webflux-mcp-0.0.1-SNAPSHOT.jar
+docker run -d \
+  --name chatdb \
+  -e POSTGRES_DB=chatdb \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -p 5433:5432 \
+  postgres:16
 ```
 
-서버가 http://localhost:9090 에서 실행되고 있어야 합니다.
+`initialize-schema: always` 설정으로 첫 실행 시 테이블이 자동 생성됩니다.
+
+### 3. Ollama
+
+Tool Calling을 지원하는 모델이 필요합니다.
+
+```bash
+ollama pull qwen3-4b:Q4_K_M
+```
+
+---
 
 ## 빌드 및 실행
 
-### 1. 빌드
 ```bash
-cd C:\workspace-test\webflux-mcp-sample\my-webflux-mcp-client
-mvn clean package
+cd C:/workspace-team/my-webflux-mcp-client
+mvn clean package -DskipTests
+java -jar target/my-webflux-mcp-client-*.jar
 ```
 
-### 2. 실행
-```bash
-java -jar target/webflux-mcp-client-0.0.1-SNAPSHOT.jar
+---
+
+## 접속 URL
+
+| 용도 | URL |
+|------|-----|
+| 채팅 UI | http://localhost:8080 |
+| 문서 업로드 UI | http://localhost:8080/upload |
+| Swagger UI | http://localhost:8080/swagger-ui.html |
+
+---
+
+## application.yml 주요 설정
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5433/chatdb
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      chat.options.model: qwen3-4b:Q4_K_M
+    mcp:
+      client:
+        type: ASYNC
+        streamable-http.connections.mcp-server.url: http://localhost:9090
+        request-timeout: 60000   # MCP 요청 타임아웃 (ms)
+    chat.memory.repository.jdbc:
+      initialize-schema: always  # 최초 실행 시 테이블 자동 생성
+server:
+  port: 8080
 ```
 
-클라이언트가 http://localhost:8080 에서 실행됩니다.
-
-**시작 로그 확인:**
-```
-INFO  o.s.b.w.e.netty.NettyWebServer  : Netty started on port 8080
-                                        ^^^^^^ WebFlux는 Netty 사용
-INFO  c.e.c.ClientApplication         : Started ClientApplication
-```
-
-## 테스트
-
-### 테스트 시나리오
-
-다음 흐름으로 MCP Client가 정상 동작하는지 확인합니다:
-
-1. **클라이언트에 질문** → REST API로 질문 전송
-2. **로컬 LLM이 판단** → Tool 필요 여부 결정
-3. **MCP 서버의 Tool 호출** → 서버에서 공공 API 데이터 조회
-4. **응답 확인** → LLM이 Tool 결과를 활용해 답변 생성
-
-### 1. 관광지 날씨 조회 테스트
-
-```bash
-# GET 방식
-curl "http://localhost:8080/api/chat?message=서울 강남구 관광지 날씨 알려줘"
-
-# POST 방식
-curl -X POST http://localhost:8080/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "제주도 관광지 TCI 지수는?"}'
-```
-
-**예상 동작**:
-1. Ollama LLM이 질문 분석
-2. `getCityInfo` Tool로 도시 코드 확인
-3. `getTouristWeatherIndex` Tool이 필요하다고 판단
-4. MCP 서버에 Tool 호출 요청
-5. 공공 API에서 관광지 기후 지수 데이터 조회
-6. LLM이 결과를 자연어로 응답
-
-### 2. 시간 조회 테스트
-
-```bash
-curl "http://localhost:8080/api/chat?message=서울 시간대의 현재 시간은?"
-
-# 또는
-curl -X POST http://localhost:8080/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Asia/Seoul 타임존의 현재 날짜와 시간 알려줘"}'
-```
-
-**예상 동작**:
-1. Ollama LLM이 질문 분석
-2. `getCurrentDateTimeWithZone` Tool이 필요하다고 판단
-3. MCP 서버에 Tool 호출 요청
-4. 서버에서 현재 시간 조회
-5. LLM이 결과를 자연어로 응답
-
-### 3. 로그 확인
-
-클라이언트 콘솔에서 다음 로그를 확인할 수 있습니다:
-
-```
-INFO  c.e.c.service.ChatService - User message: 서울 강남구 관광지 날씨 알려줘
-INFO  c.e.c.service.ChatService - Available tools: [getTouristWeatherIndex, getTouristWeatherByDate, getCityInfo, getCurrentDateTimeWithZone]
-INFO  c.e.c.service.ChatService - AI response: ...
-```
-
-## 테스트 성공 기준
-
-✅ **성공적인 테스트**:
-1. MCP Client가 서버에 연결되어 Tool 목록을 가져옴
-2. 사용자 질문에 대해 LLM이 적절한 Tool을 선택
-3. MCP 서버의 Tool이 호출되어 실제 데이터 반환
-4. LLM이 Tool 결과를 활용하여 자연어 응답 생성
-
-## 주요 설정
-
-### application.properties
-
-```properties
-# Ollama LLM 설정
-spring.ai.ollama.base-url=http://localhost:11434
-spring.ai.ollama.chat.options.model=qwen3-4b:Q4_K_M
-spring.ai.ollama.chat.options.temperature=0.7
-
-# Ollama 타임아웃 설정 (Tool Calling은 시간이 오래 걸림)
-spring.ai.ollama.chat.timeout=120s
-spring.ai.retry.max-attempts=3
-
-# MCP Client Type (ASYNC for WebFlux)
-spring.ai.mcp.client.type=ASYNC
-
-# MCP Client 연결 설정
-spring.ai.mcp.client.sse.connections.webflux-weather-api.url=http://localhost:9090/mcp/sse
-spring.ai.mcp.client.init-timeout=60000
-```
-
-### 다른 LLM 모델 사용
-
-Ollama의 다른 모델을 사용하려면 (Tool Calling 지원 모델만 가능):
-
-```bash
-# Tool Calling 지원 모델 다운로드
-ollama pull llama3.1
-ollama pull mistral
-
-# application.properties 수정
-spring.ai.ollama.chat.options.model=llama3.1
-```
-
-**주의**: Tool Calling을 사용하려면 지원하는 모델(Llama 3.1+, Mistral, Qwen 등)을 사용해야 합니다.
+---
 
 ## 트러블슈팅
 
-### 1. "Connection refused" 오류
-
-**원인**: MCP 서버가 실행되지 않음
-
-**해결**:
-```bash
-cd C:\workspace-test\webflux-mcp-sample\my-webflux-mcp-server
-java -jar target/webflux-mcp-0.0.1-SNAPSHOT.jar
-```
-
-### 2. "Ollama not available" 오류
-
-**원인**: Ollama 서버가 실행되지 않음
-
-**해결**:
-```bash
-ollama serve
-```
-
-### 3. Tool이 호출되지 않음
-
-**원인**: LLM이 Tool이 필요하다고 판단하지 못함
-
-**해결**: 질문을 더 구체적으로 변경
-- ❌ "날씨 어때?"
-- ✅ "서울 강남구 관광지 날씨 알려줘"
-- ✅ "제주도 관광지 TCI 지수는?"
-
-## 확장 아이디어
-
-1. **Web UI 추가**: React, Vue 등으로 채팅 인터페이스 구현
-2. **대화 히스토리**: 이전 대화 내용을 기억하는 기능
-3. **다중 MCP 서버**: 여러 MCP 서버 동시 연결
-4. **스트리밍 응답**: SSE로 실시간 응답 스트리밍
-
-## WebFlux Reactive 특징
-
-### Reactive Programming
-
-```java
-// ChatController (Reactive)
-@PostMapping
-public Mono<ChatResponse> chat(@RequestBody ChatRequest request) {
-    return chatService.chat(request.message())
-        .map(ChatResponse::new);  // 논블로킹 변환
-}
-
-// ChatService (Reactive)
-public Mono<String> chat(String userMessage) {
-    return Mono.fromCallable(() -> {
-        // 블로킹 작업 (Ollama LLM 호출)
-        return chatModel.call(prompt);
-    })
-    .subscribeOn(Schedulers.boundedElastic())  // 별도 스레드에서 실행
-    .map(response -> response.replaceAll("<think>.*?</think>", ""));
-}
-```
-
-### subscribeOn(Schedulers.boundedElastic())의 역할
-
-- **문제**: Ollama LLM 호출은 블로킹 작업
-- **WebFlux 제약**: 이벤트 루프 스레드에서 블로킹 금지
-- **해결**: `boundedElastic()` 스레드 풀에서 블로킹 작업 실행
-
-```
-요청 → WebFlux 이벤트 루프 (reactor-http-nio-6)
-         ↓
-     subscribeOn(boundedElastic)
-         ↓
-     별도 스레드 (boundedElastic-1)
-         ↓ (여기서 블로킹 가능!)
-     chatModel.call(prompt)
-         ↓
-     WebFlux로 결과 반환
-```
-
-## WebMVC vs WebFlux 비교
-
-| 항목 | WebMVC | WebFlux (현재) |
-|------|--------|----------------|
-| **처리 모델** | 동기/블로킹 | 비동기/논블로킹 |
-| **프로그래밍** | 명령형 | 리액티브 (Mono/Flux) |
-| **스레드** | 요청당 1 스레드 | 이벤트 루프 (4~8 스레드) |
-| **의존성** | `spring-boot-starter-web` | `spring-boot-starter-webflux` |
-| **서버** | Tomcat | Netty |
-| **MCP Client** | `spring-ai-starter-mcp-client` | `spring-ai-starter-mcp-client-webflux` |
-| **성능** | 동시 100명까지 적합 | 동시 1000명+ 처리 가능 |
-| **학습 곡선** | 낮음 | 높음 (Reactive) |
-| **Spring AI 권장** | 개발/테스트 | **프로덕션** |
-
-### WebFlux의 장점
-- 적은 메모리로 많은 동시 요청 처리
-- 논블로킹 I/O로 높은 처리량
-- 백프레셔(backpressure) 자동 처리
-- Spring AI 공식 권장 방식
-
-## 주요 의존성
-
-### pom.xml
-
-```xml
-<!-- Spring Boot WebFlux -->
-<dependency>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-webflux</artifactId>
-</dependency>
-
-<!-- Spring AI MCP Client (WebFlux) -->
-<dependency>
-    <groupId>org.springframework.ai</groupId>
-    <artifactId>spring-ai-starter-mcp-client-webflux</artifactId>
-</dependency>
-
-<!-- Spring AI Ollama -->
-<dependency>
-    <groupId>org.springframework.ai</groupId>
-    <artifactId>spring-ai-starter-model-ollama</artifactId>
-</dependency>
-
-<!-- Springdoc OpenAPI (WebFlux) -->
-<dependency>
-    <groupId>org.springdoc</groupId>
-    <artifactId>springdoc-openapi-starter-webflux-ui</artifactId>
-</dependency>
-```
-
-## 성능 특성
-
-### 예상 응답 시간
-
-| 작업 | 시간 | 설명 |
+| 증상 | 원인 | 해결 |
 |------|------|------|
-| 단순 질문 (Tool 없음) | 2~5초 | LLM 추론만 |
-| Tool 1회 호출 | 5~15초 | getCityInfo 등 |
-| Tool 2~3회 호출 | 15~30초 | 다단계 Tool 호출 |
-
-### 타임아웃 설정
-
-```properties
-# Ollama LLM 타임아웃 (120초)
-spring.ai.ollama.chat.timeout=120s
-
-# MCP Client 초기화 타임아웃 (60초)
-spring.ai.mcp.client.init-timeout=60000
-```
-
-## 트러블슈팅
-
-### 1. ReadTimeoutException
-
-**증상**: `io.netty.handler.timeout.ReadTimeoutException`
-
-**원인**: Tool Calling이 타임아웃보다 오래 걸림
-
-**해결**:
-```properties
-spring.ai.ollama.chat.timeout=180s  # 3분으로 증가
-```
-
-### 2. IllegalStateException: block() not supported
-
-**증상**: `block()/blockFirst()/blockLast() are blocking`
-
-**원인**: WebFlux 이벤트 루프 스레드에서 블로킹 호출
-
-**해결**: `subscribeOn(Schedulers.boundedElastic())` 사용 (이미 적용됨)
-
-### 3. Swagger UI 404
-
-**경로 확인**:
-- `/swagger-ui.html`
-- `/webjars/swagger-ui/index.html`
-
-**의존성 확인**:
-```xml
-<!-- WebFlux용 Swagger -->
-<artifactId>springdoc-openapi-starter-webflux-ui</artifactId>
-```
+| MCP 서버 연결 실패 | my-webflux-mcp-server 미실행 | 서버를 9090 포트로 먼저 기동 |
+| chatdb 연결 오류 | PostgreSQL 미실행 또는 포트 오류 | 5433 포트로 Docker 컨테이너 확인 |
+| MCP 도구 목록이 1개 (`uploadAndIndexDocument`만 표시됨) | 서버 도구가 `String` 반환 (ASYNC 서버 비호환) | 서버 도구 메서드 반환 타입을 `Mono<String>`으로 변경 |
+| RAG 결과가 "관련 문서 없음" | 벡터 DB에 인덱싱된 문서 없음 | `/upload`에서 파일 업로드 또는 서버 재인덱싱 |
+| 세션 ID가 null / default로 처리 | 프론트엔드에서 세션 미선택 | 페이지 로드 시 자동으로 첫 번째 세션을 선택하도록 `initializeSessionManagement()` 처리됨 |
+| 문서 업로드 타임아웃 | 대용량 파일 처리 시간 초과 | `request-timeout` 값을 늘려서 대응 (예: 120000ms) |
+| Ollama 모델 목록 비어 있음 | Ollama 미실행 | `ollama serve` 실행 후 재시도 |
