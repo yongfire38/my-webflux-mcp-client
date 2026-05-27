@@ -46,6 +46,27 @@
             background-color: #2980b9;
         }
 
+        .upload-doc-btn {
+            width: 100%;
+            padding: 10px;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+            margin-bottom: 20px;
+            transition: background-color 0.3s;
+            text-decoration: none;
+            display: block;
+            text-align: center;
+            box-sizing: border-box;
+        }
+
+        .upload-doc-btn:hover {
+            background-color: #219a52;
+        }
+
         .sessions-header {
             font-size: 14px;
             font-weight: bold;
@@ -318,6 +339,10 @@
         <button class="new-chat-btn" onclick="createNewSession()">
             + 새 채팅
         </button>
+
+        <a class="upload-doc-btn" href="/upload" target="_blank">
+            &#8593; 문서 업로드
+        </a>
 
         <div class="sessions-header">채팅 목록</div>
         <div class="sessions-list" id="sessions-list">
@@ -743,18 +768,19 @@
         function initializeSessionManagement() {
             console.log('세션 관리 초기화 시작');
 
-            loadSessions().then(() => {
+            loadSessions().then(sessions => {
                 console.log('세션 목록 로드 완료');
 
-                const sessionsList = document.getElementById('sessions-list');
-                if (sessionsList.children.length === 0 ||
-                    (sessionsList.children.length === 1 && sessionsList.children[0].textContent.includes('세션이 없습니다'))) {
+                if (!sessions || sessions.length === 0) {
                     console.log('세션이 없음, 새 세션 생성');
                     createNewSession();
+                } else {
+                    // 기존 세션이 있으면 가장 최근 세션 자동 선택
+                    loadSession(sessions[0].sessionId);
+                    console.log('가장 최근 세션 자동 선택:', sessions[0].sessionId);
                 }
             }).catch(error => {
                 console.error('세션 초기화 실패:', error);
-                console.log('오류로 인한 새 세션 생성');
                 createNewSession();
             });
         }

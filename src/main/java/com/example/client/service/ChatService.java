@@ -11,10 +11,10 @@ public interface ChatService {
     /**
      * RAG 기반 스트리밍 응답 생성 (MCP 도구 포함)
      */
-    Flux<ChatResponse> streamRagResponse(String message, String model);
+    Flux<ChatResponse> streamRagResponse(String message, String model, String sessionId);
 
     /**
      * 일반 스트리밍 응답 생성 (MCP 도구 미포함)
      */
-    Flux<ChatResponse> streamSimpleResponse(String message, String model);
+    Flux<ChatResponse> streamSimpleResponse(String message, String model, String sessionId);
 }

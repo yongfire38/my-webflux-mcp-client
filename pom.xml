@@ -74,6 +74,12 @@
 			<artifactId>spring-ai-client-chat</artifactId>
 		</dependency>
 
+		<!-- Spring AI RAG (RewriteQueryTransformer, TranslationQueryTransformer) -->
+		<dependency>
+			<groupId>org.springframework.ai</groupId>
+			<artifactId>spring-ai-rag</artifactId>
+		</dependency>
+
 		<!-- Thymeleaf (WebFlux 환경에서 자동으로 Reactive ViewResolver 사용) -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

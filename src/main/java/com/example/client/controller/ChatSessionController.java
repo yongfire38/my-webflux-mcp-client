@@ -10,6 +10,7 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -25,6 +26,9 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
+
 @Slf4j
 @RestController
 @RequestMapping("/api/chat/sessions")
@@ -35,122 +39,131 @@ public class ChatSessionController {
     private final ChatSessionService chatSessionService;
 
     @PostMapping
-    public ResponseEntity<ChatSessionDto> createNewSession() {
-        try {
-            ChatSessionDto session = chatSessionService.createNewSession();
-            log.info("새 채팅 세션 생성됨: {}", session.getSessionId());
-            return ResponseEntity.ok(session);
-        } catch (Exception e) {
-            log.error("세션 생성 실패", e);
-            return ResponseEntity.internalServerError().build();
-        }
+    public Mono<ResponseEntity<ChatSessionDto>> createNewSession() {
+        return Mono.fromCallable(() -> {
+                    ChatSessionDto session = chatSessionService.createNewSession();
+                    log.info("새 채팅 세션 생성됨: {}", session.getSessionId());
+                    return ResponseEntity.ok(session);
+                })
+                .subscribeOn(Schedulers.boundedElastic())
+                .onErrorResume(e -> {
+                    log.error("세션 생성 실패", e);
+                    return Mono.just(new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR));
+                });
     }
 
     @GetMapping
-    public ResponseEntity<List<ChatSessionDto>> getAllSessions() {
-        try {
-            List<ChatSessionDto> sessions = chatSessionService.getAllSessions();
-            log.debug("세션 목록 조회: {} 개", sessions.size());
-            return ResponseEntity.ok(sessions);
-        } catch (Exception e) {
-            log.error("세션 목록 조회 실패", e);
-            return ResponseEntity.internalServerError().build();
-        }
+    public Mono<ResponseEntity<List<ChatSessionDto>>> getAllSessions() {
+        return Mono.fromCallable(() -> {
+                    List<ChatSessionDto> sessions = chatSessionService.getAllSessions();
+                    log.debug("세션 목록 조회: {} 개", sessions.size());
+                    return ResponseEntity.ok(sessions);
+                })
+                .subscribeOn(Schedulers.boundedElastic())
+                .onErrorResume(e -> {
+                    log.error("세션 목록 조회 실패", e);
+                    return Mono.just(new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR));
+                });
     }
 
     @GetMapping("/{sessionId}")
-    public ResponseEntity<ChatSessionDto> getSession(@PathVariable String sessionId) {
-        try {
-            if (!chatSessionService.sessionExists(sessionId)) {
-                log.warn("존재하지 않는 세션 ID: {}", sessionId);
-                return ResponseEntity.notFound().build();
-            }
-
-            ChatSessionDto session = chatSessionService.getSession(sessionId);
-            log.debug("세션 조회: {}", sessionId);
-            return ResponseEntity.ok(session);
-        } catch (Exception e) {
-            log.error("세션 조회 실패: {}", sessionId, e);
-            return ResponseEntity.internalServerError().build();
-        }
+    public Mono<ResponseEntity<ChatSessionDto>> getSession(@PathVariable String sessionId) {
+        return Mono.fromCallable(() -> {
+                    if (!chatSessionService.sessionExists(sessionId)) {
+                        log.warn("존재하지 않는 세션 ID: {}", sessionId);
+                        return new ResponseEntity<ChatSessionDto>(HttpStatus.NOT_FOUND);
+                    }
+                    ChatSessionDto session = chatSessionService.getSession(sessionId);
+                    log.debug("세션 조회: {}", sessionId);
+                    return ResponseEntity.ok(session);
+                })
+                .subscribeOn(Schedulers.boundedElastic())
+                .onErrorResume(e -> {
+                    log.error("세션 조회 실패: {}", sessionId, e);
+                    return Mono.just(new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR));
+                });
     }
 
     @GetMapping("/{sessionId}/messages")
-    public ResponseEntity<List<ChatMessageDto>> getSessionMessages(@PathVariable String sessionId) {
-        try {
-            if (!chatSessionService.sessionExists(sessionId)) {
-                log.warn("존재하지 않는 세션 ID: {}", sessionId);
-                return ResponseEntity.notFound().build();
-            }
+    public Mono<ResponseEntity<List<ChatMessageDto>>> getSessionMessages(@PathVariable String sessionId) {
+        return Mono.fromCallable(() -> {
+                    if (!chatSessionService.sessionExists(sessionId)) {
+                        log.warn("존재하지 않는 세션 ID: {}", sessionId);
+                        return new ResponseEntity<List<ChatMessageDto>>(HttpStatus.NOT_FOUND);
+                    }
 
-            List<Message> messages = chatSessionService.getSessionMessages(sessionId);
-            log.debug("세션 {} 메시지 조회 결과: {} 개의 메시지", sessionId, messages.size());
+                    List<Message> messages = chatSessionService.getSessionMessages(sessionId);
+                    log.debug("세션 {} 메시지 조회 결과: {} 개의 메시지", sessionId, messages.size());
 
-            List<ChatMessageDto> messageDtos = messages.stream()
-                    .map(message -> {
-                        String messageTypeStr = message.getMessageType().name();
-                        String content;
+                    List<ChatMessageDto> messageDtos = messages.stream()
+                            .map(message -> {
+                                String messageTypeStr = message.getMessageType().name();
+                                String content;
 
-                        if (message instanceof UserMessage) {
-                            content = ((UserMessage) message).getText();
-                        } else if (message instanceof AssistantMessage) {
-                            content = ((AssistantMessage) message).getText();
-                        } else if (message instanceof SystemMessage) {
-                            content = ((SystemMessage) message).getText();
-                        } else {
-                            try {
-                                Method getTextMethod = message.getClass().getMethod("getText");
-                                content = (String) getTextMethod.invoke(message);
-                            } catch (Exception e) {
-                                content = "메시지 내용을 가져올 수 없습니다";
-                            }
-                        }
+                                if (message instanceof UserMessage) {
+                                    content = ((UserMessage) message).getText();
+                                } else if (message instanceof AssistantMessage) {
+                                    content = ((AssistantMessage) message).getText();
+                                } else if (message instanceof SystemMessage) {
+                                    content = ((SystemMessage) message).getText();
+                                } else {
+                                    try {
+                                        Method getTextMethod = message.getClass().getMethod("getText");
+                                        content = (String) getTextMethod.invoke(message);
+                                    } catch (Exception e) {
+                                        content = "메시지 내용을 가져올 수 없습니다";
+                                    }
+                                }
 
-                        return new ChatMessageDto(messageTypeStr, content);
-                    })
-                    .collect(Collectors.toList());
+                                return new ChatMessageDto(messageTypeStr, content);
+                            })
+                            .collect(Collectors.toList());
 
-            return ResponseEntity.ok(messageDtos);
-        } catch (Exception e) {
-            log.error("세션 메시지 조회 실패: {}", sessionId, e);
-            return ResponseEntity.internalServerError().build();
-        }
+                    return ResponseEntity.ok(messageDtos);
+                })
+                .subscribeOn(Schedulers.boundedElastic())
+                .onErrorResume(e -> {
+                    log.error("세션 메시지 조회 실패: {}", sessionId, e);
+                    return Mono.just(new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR));
+                });
     }
 
     @PutMapping("/{sessionId}/title")
-    public ResponseEntity<Void> updateSessionTitle(
+    public Mono<ResponseEntity<Void>> updateSessionTitle(
             @PathVariable String sessionId,
             @RequestBody UpdateTitleRequest request) {
-        try {
-            if (!chatSessionService.sessionExists(sessionId)) {
-                log.warn("존재하지 않는 세션 ID: {}", sessionId);
-                return ResponseEntity.notFound().build();
-            }
-
-            chatSessionService.updateSessionTitle(sessionId, request.getTitle());
-            log.info("세션 제목 업데이트: {} -> {}", sessionId, request.getTitle());
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            log.error("세션 제목 업데이트 실패: {}", sessionId, e);
-            return ResponseEntity.internalServerError().build();
-        }
+        return Mono.fromCallable(() -> {
+                    if (!chatSessionService.sessionExists(sessionId)) {
+                        log.warn("존재하지 않는 세션 ID: {}", sessionId);
+                        return new ResponseEntity<Void>(HttpStatus.NOT_FOUND);
+                    }
+                    chatSessionService.updateSessionTitle(sessionId, request.getTitle());
+                    log.info("세션 제목 업데이트: {} -> {}", sessionId, request.getTitle());
+                    return new ResponseEntity<Void>(HttpStatus.OK);
+                })
+                .subscribeOn(Schedulers.boundedElastic())
+                .onErrorResume(e -> {
+                    log.error("세션 제목 업데이트 실패: {}", sessionId, e);
+                    return Mono.just(new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR));
+                });
     }
 
     @DeleteMapping("/{sessionId}")
-    public ResponseEntity<Void> deleteSession(@PathVariable String sessionId) {
-        try {
-            if (!chatSessionService.sessionExists(sessionId)) {
-                log.warn("존재하지 않는 세션 ID: {}", sessionId);
-                return ResponseEntity.notFound().build();
-            }
-
-            chatSessionService.deleteSession(sessionId);
-            log.info("세션 삭제: {}", sessionId);
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            log.error("세션 삭제 실패: {}", sessionId, e);
-            return ResponseEntity.internalServerError().build();
-        }
+    public Mono<ResponseEntity<Void>> deleteSession(@PathVariable String sessionId) {
+        return Mono.fromCallable(() -> {
+                    if (!chatSessionService.sessionExists(sessionId)) {
+                        log.warn("존재하지 않는 세션 ID: {}", sessionId);
+                        return new ResponseEntity<Void>(HttpStatus.NOT_FOUND);
+                    }
+                    chatSessionService.deleteSession(sessionId);
+                    log.info("세션 삭제: {}", sessionId);
+                    return new ResponseEntity<Void>(HttpStatus.OK);
+                })
+                .subscribeOn(Schedulers.boundedElastic())
+                .onErrorResume(e -> {
+                    log.error("세션 삭제 실패: {}", sessionId, e);
+                    return Mono.just(new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR));
+                });
     }
 
     public static class UpdateTitleRequest {
