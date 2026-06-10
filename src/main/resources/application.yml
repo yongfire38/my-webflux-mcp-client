@@ -2,6 +2,10 @@ spring:
   application:
     name: webflux-mcp-client
 
+  http:
+    codecs:
+      max-in-memory-size: 52428800  # 50MB — 멀티파트 업로드 허용 크기
+
   thymeleaf:
     prefix: classpath:/templates/
     suffix: .html

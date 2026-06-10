@@ -36,7 +36,6 @@ import reactor.core.scheduler.Schedulers;
 public class DocumentUploadController {
 
     private static final String CLIENT_DATA_DIR = "C:/workspace-test/upload/client_data";
-    private static final long MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
 
     private final McpAsyncClient mcpAsyncClient;
 
@@ -77,15 +76,11 @@ public class DocumentUploadController {
 
         log.info("[업로드] 파일 수신 — filename: {}", safeFilename);
 
-        return DataBufferUtils.join(filePart.content())
+        return DataBufferUtils.join(filePart.content(), 50 * 1024 * 1024)
                 .flatMap(dataBuffer -> {
                     byte[] bytes = new byte[dataBuffer.readableByteCount()];
                     dataBuffer.read(bytes);
                     DataBufferUtils.release(dataBuffer);
-
-                    if (bytes.length > MAX_FILE_SIZE_BYTES) {
-                        return Mono.just(errorResponse("파일 크기가 50MB를 초과합니다."));
-                    }
 
                     String base64 = Base64.getEncoder().encodeToString(bytes);
                     return callMcpUploadTool(safeFilename, base64, mimeType)
