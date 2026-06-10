@@ -11,7 +11,7 @@ public class SessionContext {
     public static void setCurrentSessionId(String sessionId) {
         if (sessionId == null || sessionId.trim().isEmpty()) {
             log.warn("빈 세션 ID 설정 시도, 기본값 사용");
-            CURRENT_SESSION_ID.set(ChatMemory.DEFAULT_CONVERSATION_ID);
+            CURRENT_SESSION_ID.set(ChatMemory.CONVERSATION_ID);
         } else {
             log.debug("세션 ID 설정: {}", sessionId);
             CURRENT_SESSION_ID.set(sessionId);
@@ -22,7 +22,7 @@ public class SessionContext {
         String sessionId = CURRENT_SESSION_ID.get();
         if (sessionId == null) {
             log.warn("세션 ID가 설정되지 않음, 기본값 사용");
-            return ChatMemory.DEFAULT_CONVERSATION_ID;
+            return ChatMemory.CONVERSATION_ID;
         }
         return sessionId;
     }
@@ -35,6 +35,6 @@ public class SessionContext {
 
     public static boolean isDefaultSession() {
         String sessionId = getCurrentSessionId();
-        return ChatMemory.DEFAULT_CONVERSATION_ID.equals(sessionId);
+        return ChatMemory.CONVERSATION_ID.equals(sessionId);
     }
 }

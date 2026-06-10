@@ -64,12 +64,12 @@ public class ChatController {
         return Mono.fromCallable(() -> {
                     if (sessionId == null || sessionId.isEmpty()) {
                         log.warn("세션 ID가 제공되지 않음, 기본 세션으로 처리");
-                        return ChatMemory.DEFAULT_CONVERSATION_ID;
+                        return ChatMemory.CONVERSATION_ID;
                     }
 
                     if (!chatSessionService.sessionExists(sessionId)) {
                         log.warn("존재하지 않는 세션 ID: {}, 기본 세션으로 처리", sessionId);
-                        return ChatMemory.DEFAULT_CONVERSATION_ID;
+                        return ChatMemory.CONVERSATION_ID;
                     }
 
                     // 첫 메시지인 경우 세션 제목 업데이트

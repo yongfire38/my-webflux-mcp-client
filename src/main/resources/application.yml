@@ -2,6 +2,15 @@ spring:
   application:
     name: webflux-mcp-client
 
+  autoconfigure:
+    exclude:
+      # MCP 클라이언트 자동 구성에서 eagerly blocking 초기화 제거 → 서버 없이 기동 가능
+      - org.springframework.ai.mcp.client.common.autoconfigure.McpClientAutoConfiguration
+      - org.springframework.ai.mcp.client.common.autoconfigure.McpToolCallbackAutoConfiguration
+
+  main:
+    allow-bean-definition-overriding: true   # eGovFrame + Spring AI 빈 충돌 회피
+
   http:
     codecs:
       max-in-memory-size: 52428800  # 50MB — 멀티파트 업로드 허용 크기
