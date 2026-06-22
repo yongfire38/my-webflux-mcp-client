@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MCP Client 채팅</title>
     <script src="/js/marked.min.js"></script>
+    <script src="/js/purify.min.js"></script>
     <style>
         body {
             font-family: 'Noto Sans KR', Arial, sans-serif;
@@ -484,6 +485,12 @@
             }
         }
 
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
         function addMessage(content, isUser) {
             const chatContainer = document.getElementById('chat-container');
             const messageDiv = document.createElement('div');
@@ -493,7 +500,7 @@
             if (isUser) {
                 messageDiv.textContent = content;
             } else {
-                messageDiv.innerHTML = marked.parse(content);
+                messageDiv.innerHTML = DOMPurify.sanitize(marked.parse(content));
             }
 
             chatContainer.appendChild(messageDiv);
@@ -546,7 +553,7 @@
                         fullResponse += chunk;
 
                         try {
-                            aiMessageDiv.innerHTML = marked.parse(fullResponse);
+                            aiMessageDiv.innerHTML = DOMPurify.sanitize(marked.parse(fullResponse));
                         } catch (markdownError) {
                             console.error('마크다운 변환 오류:', markdownError);
                             aiMessageDiv.innerText = fullResponse;
@@ -645,7 +652,7 @@
                         }
                         sessionItem.innerHTML = `
                             <div class="session-content" onclick="loadSession('${session.sessionId}')">
-                                <div class="session-title">${session.title}</div>
+                                <div class="session-title">${escapeHtml(session.title)}</div>
                                 <div class="session-time">${formatDate(session.lastMessageAt)}</div>
                             </div>
                             <button class="delete-session-btn" onclick="deleteSession('${session.sessionId}', event)" title="세션 삭제">
