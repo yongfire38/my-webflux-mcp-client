@@ -31,6 +31,9 @@ public class McpOptionalConfig {
     @Value("${spring.ai.mcp.client.request-timeout:60000}")
     private long requestTimeoutMs;
 
+    @Value("${app.mcp-client-id:webflux-mcp-client}")
+    private String mcpClientId;
+
     @Bean
     public McpClientHolder mcpClientHolder(
             McpStreamableHttpClientProperties streamableProperties,
@@ -46,7 +49,8 @@ public class McpOptionalConfig {
                 webClientBuilderProvider,
                 objectMapper,
                 registry,
-                requestTimeoutMs);
+                requestTimeoutMs,
+                mcpClientId);
 
         // 기동 시 초기 연결 시도 (실패해도 기동은 계속)
         boolean connected = holder.tryReconnect();

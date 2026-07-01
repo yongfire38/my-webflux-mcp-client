@@ -83,8 +83,11 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
-# RAG 쿼리 변환 (LLM 추가 호출 발생 — 필요 시에만 활성화)
+# MCP clientInfo.name — 서버가 업로드 문서의 출처(sourceClient)를 구분하는 데 사용.
+# 클라이언트를 여러 대 배포할 경우 배포마다 고유한 값으로 변경할 것
 app:
+  mcp-client-id: webflux-mcp-client
+
   rag:
     query-transform:
       translation-enabled: false

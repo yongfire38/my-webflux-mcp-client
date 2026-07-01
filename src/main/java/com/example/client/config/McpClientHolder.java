@@ -42,6 +42,7 @@ public class McpClientHolder {
     private final ObjectMapper objectMapper;
     private final ClientMcpAsyncHandlersRegistry registry;
     private final long requestTimeoutMs;
+    private final String clientId;
 
     private final List<McpAsyncClient> clients = new ArrayList<>();
     private final AtomicLong lastAttemptAt = new AtomicLong(0);
@@ -50,12 +51,14 @@ public class McpClientHolder {
                            ObjectProvider<WebClient.Builder> webClientBuilderProvider,
                            ObjectMapper objectMapper,
                            ClientMcpAsyncHandlersRegistry registry,
-                           long requestTimeoutMs) {
+                           long requestTimeoutMs,
+                           String clientId) {
         this.streamableProperties = streamableProperties;
         this.webClientBuilderProvider = webClientBuilderProvider;
         this.objectMapper = objectMapper;
         this.registry = registry;
         this.requestTimeoutMs = requestTimeoutMs;
+        this.clientId = clientId;
     }
 
     public synchronized boolean isConnected() {
@@ -104,7 +107,7 @@ public class McpClientHolder {
                         .build();
 
                 McpClient.AsyncSpec spec = McpClient.async(freshTransport)
-                        .clientInfo(new McpSchema.Implementation("webflux-mcp-client", "1.0.0"))
+                        .clientInfo(new McpSchema.Implementation(clientId, "1.0.0"))
                         .requestTimeout(Duration.ofMillis(requestTimeoutMs));
 
                 if (registry != null) {
