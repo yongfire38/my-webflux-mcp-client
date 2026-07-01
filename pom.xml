@@ -16,8 +16,8 @@
 
 	<properties>
 		<java.version>17</java.version>
-		<!-- egovframe parent의 spring.ai.version(1.0.1)을 1.1.7로 오버라이드 -->
-		<spring.ai.version>1.1.7</spring.ai.version>
+		<!-- egovframe parent의 spring.ai.version(1.0.1)을 1.1.8로 오버라이드 -->
+		<spring.ai.version>1.1.8</spring.ai.version>
 	</properties>
 
 	<repositories>
