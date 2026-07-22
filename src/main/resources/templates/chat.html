@@ -582,11 +582,6 @@
                 }
             };
 
-            eventSource.addEventListener('complete', function() {
-                eventSource.close();
-                sendBtn.disabled = false;
-                loadSessions();
-            });
         }
 
         /**
