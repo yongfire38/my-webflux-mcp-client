@@ -2,14 +2,8 @@ spring:
   application:
     name: webflux-mcp-client
 
-  autoconfigure:
-    exclude:
-      # MCP 클라이언트 자동 구성에서 eagerly blocking 초기화 제거 → 서버 없이 기동 가능
-      - org.springframework.ai.mcp.client.common.autoconfigure.McpClientAutoConfiguration
-      - org.springframework.ai.mcp.client.common.autoconfigure.McpToolCallbackAutoConfiguration
-
   main:
-    allow-bean-definition-overriding: true   # eGovFrame + Spring AI 빈 충돌 회피
+    allow-bean-definition-overriding: true  # eGovFrame 빈 충돌 회피
 
   http:
     codecs:
@@ -20,50 +14,6 @@ spring:
     suffix: .html
     cache: false
 
-  # 클라이언트 전용 PostgreSQL (채팅 이력 + 세션 관리)
-  datasource:
-    url: jdbc:postgresql://localhost:5433/chatdb
-    username: postgres
-    password: postgres
-    driver-class-name: org.postgresql.Driver
-
-  jpa:
-    hibernate:
-      ddl-auto: update
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-
-  ai:
-    # Ollama LLM
-    ollama:
-      base-url: http://localhost:11434
-      chat:
-        options:
-          model: qwen3-4b:Q4_K_M
-          temperature: 0.7
-
-    # Chat Memory JDBC (spring_ai_chat_memory 테이블 자동 생성)
-    chat:
-      memory:
-        repository:
-          jdbc:
-            initialize-schema: always
-
-    # Retry
-    retry:
-      max-attempts: 2
-
-    # MCP Client (Streamable HTTP)
-    mcp:
-      client:
-        type: ASYNC
-        streamable-http:
-          connections:
-            mcp-server:
-              url: http://localhost:9090
-        request-timeout: 60000
-
 # Server Port
 server:
   port: 8080
@@ -73,23 +23,15 @@ logging:
   level:
     root: INFO
     com.example.client: DEBUG
-    org.springframework.ai: DEBUG
-    org.springframework.ai.mcp: TRACE
 
-# Swagger UI (WebFlux)
+# Swagger UI
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
   api-docs:
     path: /v3/api-docs
 
-# MCP clientInfo.name — 서버가 업로드 문서의 출처(sourceClient)를 구분하는 데 사용.
-# 클라이언트를 여러 대 배포할 경우 배포마다 고유한 값으로 변경할 것
+# Application
 app:
-  mcp-client-id: webflux-mcp-client
-
-  rag:
-    query-transform:
-      translation-enabled: false
-      translation-target-language: Korean
-      rewrite-enabled: false
+  server:
+    url: ${MCP_SERVER_URL:http://localhost:9090}

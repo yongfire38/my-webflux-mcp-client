@@ -12,12 +12,10 @@
 	<artifactId>webflux-mcp-client</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name>webflux-mcp-client</name>
-	<description>MCP Client with Ollama LLM</description>
+	<description>WebFlux UI Client — thin proxy to my-webflux-mcp-server</description>
 
 	<properties>
 		<java.version>17</java.version>
-		<!-- egovframe parent의 spring.ai.version(1.0.1)을 1.1.8로 오버라이드 -->
-		<spring.ai.version>1.1.8</spring.ai.version>
 	</properties>
 
 	<repositories>
@@ -50,10 +48,10 @@
 			<artifactId>egovframe-rte-fdl-cmmn</artifactId>
 		</dependency>
 
-		<!-- Spring Boot WebFlux -->
+		<!-- Spring Boot WebFlux (WebClient + ReactiveController) -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
-			 <artifactId>spring-boot-starter-webflux</artifactId>
+			<artifactId>spring-boot-starter-webflux</artifactId>
 			<exclusions>
 				<exclusion>
 					<groupId>org.springframework.boot</groupId>
@@ -62,31 +60,7 @@
 			</exclusions>
 		</dependency>
 
-		<!-- Spring AI MCP Client -->
-		<dependency>
-			<groupId>org.springframework.ai</groupId>
-			<artifactId>spring-ai-starter-mcp-client-webflux</artifactId>
-		</dependency>
-
-		<!-- Spring AI Ollama (로컬 LLM) -->
-		<dependency>
-			<groupId>org.springframework.ai</groupId>
-			<artifactId>spring-ai-starter-model-ollama</artifactId>
-		</dependency>
-
-		<!-- Spring AI ChatClient (ChatClient, MessageChatMemoryAdvisor) -->
-		<dependency>
-			<groupId>org.springframework.ai</groupId>
-			<artifactId>spring-ai-client-chat</artifactId>
-		</dependency>
-
-		<!-- Spring AI RAG (RewriteQueryTransformer, TranslationQueryTransformer) -->
-		<dependency>
-			<groupId>org.springframework.ai</groupId>
-			<artifactId>spring-ai-rag</artifactId>
-		</dependency>
-
-		<!-- Thymeleaf (WebFlux 환경에서 자동으로 Reactive ViewResolver 사용) -->
+		<!-- Thymeleaf (로그인/채팅 UI) -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-thymeleaf</artifactId>
@@ -96,31 +70,6 @@
 					<artifactId>spring-boot-starter-logging</artifactId>
 				</exclusion>
 			</exclusions>
-		</dependency>
-
-		<!-- Spring Data JPA (세션 메타데이터 관리) -->
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-data-jpa</artifactId>
-			<exclusions>
-				<exclusion>
-					<groupId>org.springframework.boot</groupId>
-					<artifactId>spring-boot-starter-logging</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-
-		<!-- PostgreSQL Driver -->
-		<dependency>
-			<groupId>org.postgresql</groupId>
-			<artifactId>postgresql</artifactId>
-			<scope>runtime</scope>
-		</dependency>
-
-		<!-- Spring AI Chat Memory JDBC Repository (채팅 이력 영속화) -->
-		<dependency>
-			<groupId>org.springframework.ai</groupId>
-			<artifactId>spring-ai-starter-model-chat-memory-repository-jdbc</artifactId>
 		</dependency>
 
 		<!-- Lombok -->
@@ -144,19 +93,6 @@
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
-
-	<dependencyManagement>
-		<dependencies>
-			<!-- MCP 아티팩트는 egovframe parent에 없으므로 BOM 유지 -->
-			<dependency>
-				<groupId>org.springframework.ai</groupId>
-				<artifactId>spring-ai-bom</artifactId>
-				<version>${spring.ai.version}</version>
-				<type>pom</type>
-				<scope>import</scope>
-			</dependency>
-		</dependencies>
-	</dependencyManagement>
 
 	<build>
 		<plugins>

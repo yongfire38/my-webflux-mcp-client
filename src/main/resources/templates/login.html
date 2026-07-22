@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Chat — 로그인</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Noto Sans KR', Arial, sans-serif;
+            background: #f0f2f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            color: #333;
+        }
+        .card {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,.12);
+            padding: 40px;
+            width: 380px;
+            max-width: 95vw;
+        }
+        h1 {
+            font-size: 1.5rem;
+            text-align: center;
+            margin-bottom: 8px;
+            color: #2c3e50;
+        }
+        .subtitle {
+            text-align: center;
+            font-size: 0.85rem;
+            color: #888;
+            margin-bottom: 28px;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e9ecef;
+            margin-bottom: 24px;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            background: none;
+            border: none;
+            font-size: 0.95rem;
+            cursor: pointer;
+            color: #888;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: color .2s, border-color .2s;
+        }
+        .tab-btn.active {
+            color: #3498db;
+            border-bottom-color: #3498db;
+            font-weight: bold;
+        }
+        .form-group {
+            margin-bottom: 18px;
+        }
+        label {
+            display: block;
+            font-size: 0.85rem;
+            color: #555;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #ddd;
+            border-radius: 7px;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color .2s;
+        }
+        input:focus { border-color: #3498db; }
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: #3498db;
+            color: #fff;
+            border: none;
+            border-radius: 7px;
+            font-size: 1rem;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background .2s;
+        }
+        .btn:hover { background: #2980b9; }
+        .btn:disabled { background: #aaa; cursor: not-allowed; }
+        .alert {
+            padding: 10px 14px;
+            border-radius: 7px;
+            font-size: 0.9rem;
+            margin-bottom: 16px;
+            display: none;
+        }
+        .alert.error { background: #fde8e8; color: #c0392b; border: 1px solid #f5c6c6; }
+        .alert.success { background: #e8f8e8; color: #27ae60; border: 1px solid #c6f0c6; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>MCP Chat</h1>
+        <p class="subtitle">RAG 기반 문서 채팅 시스템</p>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="showTab('login')">로그인</button>
+            <button class="tab-btn" onclick="showTab('register')">회원가입</button>
+        </div>
+
+        <div id="alert" class="alert"></div>
+
+        <!-- 로그인 폼 -->
+        <div id="login-form">
+            <div class="form-group">
+                <label for="login-username">사용자명</label>
+                <input type="text" id="login-username" placeholder="사용자명 입력" autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label for="login-password">비밀번호</label>
+                <input type="password" id="login-password" placeholder="비밀번호 입력" autocomplete="current-password"
+                       onkeydown="if(event.key==='Enter') login()">
+            </div>
+            <button class="btn" id="login-btn" onclick="login()">로그인</button>
+        </div>
+
+        <!-- 회원가입 폼 -->
+        <div id="register-form" style="display:none;">
+            <div class="form-group">
+                <label for="reg-username">사용자명</label>
+                <input type="text" id="reg-username" placeholder="사용할 사용자명 입력">
+            </div>
+            <div class="form-group">
+                <label for="reg-password">비밀번호</label>
+                <input type="password" id="reg-password" placeholder="비밀번호 입력">
+            </div>
+            <div class="form-group">
+                <label for="reg-password2">비밀번호 확인</label>
+                <input type="password" id="reg-password2" placeholder="비밀번호 재입력"
+                       onkeydown="if(event.key==='Enter') register()">
+            </div>
+            <button class="btn" id="register-btn" onclick="register()">회원가입</button>
+        </div>
+    </div>
+
+    <script>
+        // 이미 로그인된 경우 홈으로 이동
+        if (localStorage.getItem('jwt_token')) {
+            window.location.href = '/';
+        }
+
+        function showTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('login-form').style.display = tab === 'login' ? '' : 'none';
+            document.getElementById('register-form').style.display = tab === 'register' ? '' : 'none';
+            hideAlert();
+        }
+
+        function showAlert(message, type) {
+            const el = document.getElementById('alert');
+            el.textContent = message;
+            el.className = 'alert ' + type;
+            el.style.display = 'block';
+        }
+
+        function hideAlert() {
+            document.getElementById('alert').style.display = 'none';
+        }
+
+        async function login() {
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value;
+            if (!username || !password) { showAlert('사용자명과 비밀번호를 입력하세요.', 'error'); return; }
+
+            const btn = document.getElementById('login-btn');
+            btn.disabled = true;
+            btn.textContent = '로그인 중...';
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    localStorage.setItem('jwt_token', data.token);
+                    localStorage.setItem('username', data.username);
+                    window.location.href = '/';
+                } else {
+                    const msg = typeof data === 'string' ? data : (data.message || '로그인에 실패했습니다.');
+                    showAlert(msg, 'error');
+                }
+            } catch (e) {
+                showAlert('서버 연결에 실패했습니다.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '로그인';
+            }
+        }
+
+        async function register() {
+            const username = document.getElementById('reg-username').value.trim();
+            const password = document.getElementById('reg-password').value;
+            const password2 = document.getElementById('reg-password2').value;
+            if (!username || !password) { showAlert('사용자명과 비밀번호를 입력하세요.', 'error'); return; }
+            if (password !== password2) { showAlert('비밀번호가 일치하지 않습니다.', 'error'); return; }
+
+            const btn = document.getElementById('register-btn');
+            btn.disabled = true;
+            btn.textContent = '처리 중...';
+
+            try {
+                const res = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                if (res.ok) {
+                    showAlert('회원가입이 완료되었습니다. 로그인해 주세요.', 'success');
+                    // 로그인 탭으로 전환
+                    document.getElementById('reg-username').value = '';
+                    document.getElementById('reg-password').value = '';
+                    document.getElementById('reg-password2').value = '';
+                    document.querySelectorAll('.tab-btn')[0].click();
+                    document.getElementById('login-username').value = username;
+                } else {
+                    const text = await res.text();
+                    showAlert(text || '회원가입에 실패했습니다.', 'error');
+                }
+            } catch (e) {
+                showAlert('서버 연결에 실패했습니다.', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '회원가입';
+            }
+        }
+    </script>
+</body>
+</html>
