@@ -43,6 +43,7 @@ public class McpClientHolder {
     private final ClientMcpAsyncHandlersRegistry registry;
     private final long requestTimeoutMs;
     private final String clientId;
+    private final String mcpApiKey;
 
     private final List<McpAsyncClient> clients = new ArrayList<>();
     private final AtomicLong lastAttemptAt = new AtomicLong(0);
@@ -52,13 +53,15 @@ public class McpClientHolder {
                            ObjectMapper objectMapper,
                            ClientMcpAsyncHandlersRegistry registry,
                            long requestTimeoutMs,
-                           String clientId) {
+                           String clientId,
+                           String mcpApiKey) {
         this.streamableProperties = streamableProperties;
         this.webClientBuilderProvider = webClientBuilderProvider;
         this.objectMapper = objectMapper;
         this.registry = registry;
         this.requestTimeoutMs = requestTimeoutMs;
         this.clientId = clientId;
+        this.mcpApiKey = mcpApiKey;
     }
 
     public synchronized boolean isConnected() {
@@ -100,8 +103,13 @@ public class McpClientHolder {
 
             try {
                 // 매 재연결 시도마다 신규 트랜스포트 생성 (재사용 불가)
+                // 이슈 #26: 서버 uploadAndIndexDocument 인증을 위해 X-MCP-API-Key 헤더 부착
+                WebClient.Builder clientBuilder = builderTemplate.clone().baseUrl(url);
+                if (mcpApiKey != null && !mcpApiKey.isBlank()) {
+                    clientBuilder = clientBuilder.defaultHeader("X-MCP-API-Key", mcpApiKey);
+                }
                 var freshTransport = WebClientStreamableHttpTransport
-                        .builder(builderTemplate.clone().baseUrl(url))
+                        .builder(clientBuilder)
                         .endpoint(endpoint)
                         .jsonMapper(new JacksonMcpJsonMapper(objectMapper))
                         .build();

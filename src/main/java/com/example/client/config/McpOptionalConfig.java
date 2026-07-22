@@ -34,6 +34,9 @@ public class McpOptionalConfig {
     @Value("${app.mcp-client-id:webflux-mcp-client}")
     private String mcpClientId;
 
+    @Value("${app.mcp-api-key:}")
+    private String mcpApiKey;
+
     @Bean
     public McpClientHolder mcpClientHolder(
             McpStreamableHttpClientProperties streamableProperties,
@@ -50,7 +53,8 @@ public class McpOptionalConfig {
                 objectMapper,
                 registry,
                 requestTimeoutMs,
-                mcpClientId);
+                mcpClientId,
+                mcpApiKey);
 
         // 기동 시 초기 연결 시도 (실패해도 기동은 계속)
         boolean connected = holder.tryReconnect();

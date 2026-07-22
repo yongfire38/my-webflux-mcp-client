@@ -87,6 +87,9 @@ springdoc:
 # 클라이언트를 여러 대 배포할 경우 배포마다 고유한 값으로 변경할 것
 app:
   mcp-client-id: webflux-mcp-client
+  # 서버 MCP Tool 인증 키. 서버의 app.security.api-keys 목록과 동일한 값으로 설정.
+  # 환경변수 MCP_API_KEY 미설정 시 빈 문자열 → uploadAndIndexDocument 호출 시 서버에서 거부.
+  mcp-api-key: "${MCP_API_KEY:}"
 
   rag:
     query-transform:
