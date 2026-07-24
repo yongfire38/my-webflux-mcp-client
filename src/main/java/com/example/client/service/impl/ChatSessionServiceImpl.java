@@ -12,7 +12,6 @@ import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -28,7 +27,6 @@ public class ChatSessionServiceImpl extends EgovAbstractServiceImpl implements C
 
     private final ChatSessionRepository chatSessionRepository;
     private final ChatMemory chatMemory;
-    private final JdbcTemplate jdbcTemplate;
 
     @Override
     public ChatSessionDto createNewSession() {
@@ -130,20 +128,11 @@ public class ChatSessionServiceImpl extends EgovAbstractServiceImpl implements C
     public void deleteSession(String sessionId) {
         log.info("세션 삭제 시작: {}", sessionId);
 
-        // 1. spring_ai_chat_memory 테이블에서 해당 세션의 모든 메시지 삭제
-        String deleteMemorySql = "DELETE FROM spring_ai_chat_memory WHERE conversation_id = ?";
-        int deletedMessages = jdbcTemplate.update(deleteMemorySql, sessionId);
-        log.info("세션 {} 메시지 삭제 완료: {} 개", sessionId, deletedMessages);
+        // 1. 채팅 이력 삭제 (JdbcChatMemoryRepository → spring_ai_chat_memory 테이블)
+        chatMemory.clear(sessionId);
+        log.info("세션 {} 채팅 이력 삭제 완료", sessionId);
 
-        // 2. ChatMemory 캐시에서도 삭제 (선택적, 실패해도 무시)
-        try {
-            chatMemory.clear(sessionId);
-            log.debug("ChatMemory 캐시에서 세션 {} 삭제 완료", sessionId);
-        } catch (Exception e) {
-            log.debug("ChatMemory 캐시 삭제 실패 (무시): {}", e.getMessage());
-        }
-
-        // 3. 세션 정보 삭제
+        // 2. 세션 정보 삭제
         chatSessionRepository.deleteById(sessionId);
         log.info("세션 삭제 완료: {}", sessionId);
     }
