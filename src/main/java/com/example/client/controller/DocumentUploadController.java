@@ -1,5 +1,6 @@
 package com.example.client.controller;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -34,7 +35,7 @@ import java.time.Duration;
  *   POST /api/documents/upload           파일 업로드 → MCP Tool 호출 → 완료 결과 반환
  *   POST /api/documents/index-local      로컬 파일 인덱싱 (CLIENT_DATA_DIR 기준)
  *
- * 지원 형식: PDF (.pdf), 마크다운 (.md)
+ * 지원 형식: PDF (.pdf), 마크다운 (.md), 텍스트 (.txt)
  *
  * MCP 미연결 시: 각 요청에서 mcpClientHolder.getFirstClient() 가 null을 반환하므로 오류 응답.
  * 업로드 엔드포인트는 재연결 시도를 하지 않는다 — RAG 탭에서 재연결 후 사용할 것.
@@ -60,7 +61,7 @@ public class DocumentUploadController {
 
         String safeFilename = Paths.get(filename).getFileName().toString();
         if (!isSupportedFile(safeFilename)) {
-            return Mono.just(errorResponse("PDF 또는 마크다운(.md) 파일만 지원합니다."));
+            return Mono.just(errorResponse("PDF, 마크다운(.md), 텍스트(.txt) 파일만 지원합니다."));
         }
 
         McpAsyncClient client = mcpClientHolder.getFirstClient();
@@ -69,9 +70,7 @@ public class DocumentUploadController {
                     "MCP 서버가 연결되지 않았습니다. RAG 탭에서 질문을 한 번 시도하면 자동 재연결됩니다."));
         }
 
-        String mimeType = safeFilename.toLowerCase().endsWith(".pdf")
-                ? "application/pdf"
-                : "text/markdown";
+        String mimeType = getMimeType(safeFilename);
 
         log.info("[업로드] 파일 수신 — filename: {}", safeFilename);
 
@@ -81,8 +80,10 @@ public class DocumentUploadController {
                     dataBuffer.read(bytes);
                     DataBufferUtils.release(dataBuffer);
 
-                    String base64 = Base64.getEncoder().encodeToString(bytes);
-                    return callMcpUploadTool(client, safeFilename, base64, mimeType)
+                    String content = "application/pdf".equals(mimeType)
+                            ? Base64.getEncoder().encodeToString(bytes)
+                            : new String(bytes, StandardCharsets.UTF_8);
+                    return callMcpUploadTool(client, safeFilename, content, mimeType)
                             .map(result -> {
                                 Map<String, Object> response = new HashMap<>();
                                 response.put("success", true);
@@ -104,7 +105,7 @@ public class DocumentUploadController {
 
         String safeFilename = Paths.get(filename).getFileName().toString();
         if (!isSupportedFile(safeFilename)) {
-            return Mono.just(errorResponse("PDF 또는 마크다운(.md) 파일만 지원합니다."));
+            return Mono.just(errorResponse("PDF, 마크다운(.md), 텍스트(.txt) 파일만 지원합니다."));
         }
 
         McpAsyncClient client = mcpClientHolder.getFirstClient();
@@ -114,17 +115,17 @@ public class DocumentUploadController {
         }
 
         Path filePath = Paths.get(CLIENT_DATA_DIR, safeFilename);
-        String mimeType = safeFilename.toLowerCase().endsWith(".pdf")
-                ? "application/pdf"
-                : "text/markdown";
+        String mimeType = getMimeType(safeFilename);
 
         log.info("[로컬 인덱싱] filename: {}", safeFilename);
 
         return Mono.fromCallable(() -> Files.readAllBytes(filePath))
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(bytes -> {
-                    String base64 = Base64.getEncoder().encodeToString(bytes);
-                    return callMcpUploadTool(client, safeFilename, base64, mimeType);
+                    String content = "application/pdf".equals(mimeType)
+                            ? Base64.getEncoder().encodeToString(bytes)
+                            : new String(bytes, StandardCharsets.UTF_8);
+                    return callMcpUploadTool(client, safeFilename, content, mimeType);
                 })
                 .map(result -> {
                     Map<String, Object> response = new HashMap<>();
@@ -144,11 +145,11 @@ public class DocumentUploadController {
     // ─────────────────────────────────────────────────────────────────────────
 
     private Mono<String> callMcpUploadTool(McpAsyncClient client,
-                                           String filename, String base64Content, String mimeType) {
+                                           String filename, String content, String mimeType) {
         Map<String, Object> args = new HashMap<>();
         args.put("jobId", "upload-" + System.currentTimeMillis());
         args.put("filename", filename);
-        args.put("base64Content", base64Content);
+        args.put("content", content);
         args.put("mimeType", mimeType);
 
         return client.callTool(new McpSchema.CallToolRequest("uploadAndIndexDocument", args))
@@ -167,9 +168,16 @@ public class DocumentUploadController {
                 });
     }
 
+    private String getMimeType(String filename) {
+        String lower = filename.toLowerCase();
+        if (lower.endsWith(".pdf")) return "application/pdf";
+        if (lower.endsWith(".txt")) return "text/plain";
+        return "text/markdown";
+    }
+
     private boolean isSupportedFile(String filename) {
         String lower = filename.toLowerCase();
-        return lower.endsWith(".pdf") || lower.endsWith(".md");
+        return lower.endsWith(".pdf") || lower.endsWith(".md") || lower.endsWith(".txt");
     }
 
     private Map<String, Object> errorResponse(String message) {

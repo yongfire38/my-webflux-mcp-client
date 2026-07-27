@@ -47,7 +47,9 @@
             background: #eaf4fd;
         }
         .drop-zone input[type="file"] { display: none; }
-        .drop-zone .icon { font-size: 2.5rem; margin-bottom: 8px; }
+        .drop-zone .icon { margin-bottom: 12px; line-height: 1; }
+        .drop-zone .icon svg { display: block; margin: 0 auto; opacity: .55; transition: opacity .2s; }
+        .drop-zone:hover .icon svg, .drop-zone.dragover .icon svg { opacity: .8; }
         .drop-zone p { color: #636e72; font-size: 0.9rem; }
         .drop-zone .selected-file {
             margin-top: 10px;
@@ -92,17 +94,25 @@
     <div class="card">
         <h2>문서 선택 및 업로드</h2>
         <p style="color:#636e72; font-size:.88rem; margin-bottom:20px;">
-            PDF 또는 마크다운(.md) 파일을 서버 RAG 지식 베이스에 임베딩합니다.<br>
+            PDF, 마크다운(.md), 텍스트(.txt) 파일을 서버 RAG 지식 베이스에 임베딩합니다.<br>
             최대 파일 크기: 50MB
         </p>
 
         <div class="form-group">
             <label>파일 선택</label>
             <div class="drop-zone" id="dropZone">
-                <input type="file" id="fileInput" accept=".pdf,.md">
-                <div class="icon">📄</div>
+                <input type="file" id="fileInput" accept=".pdf,.md,.txt">
+                <div class="icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 52 52" fill="none">
+                        <path d="M10 4h22l12 12v32H10V4z" fill="#ecf0f1" stroke="#95a5a6" stroke-width="2" stroke-linejoin="round"/>
+                        <path d="M32 4v12h12" fill="#dfe6e9" stroke="#95a5a6" stroke-width="2" stroke-linejoin="round"/>
+                        <line x1="17" y1="24" x2="35" y2="24" stroke="#95a5a6" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="17" y1="30" x2="35" y2="30" stroke="#95a5a6" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="17" y1="36" x2="27" y2="36" stroke="#95a5a6" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                </div>
                 <p>여기에 파일을 끌어다 놓거나 클릭하여 선택하세요</p>
-                <p style="margin-top:6px; font-size:.8rem;">.pdf / .md 지원</p>
+                <p style="margin-top:6px; font-size:.8rem;">.pdf / .md / .txt 지원</p>
                 <div class="selected-file" id="selectedFileName"></div>
             </div>
         </div>
