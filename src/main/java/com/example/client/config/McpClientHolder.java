@@ -22,16 +22,9 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.web.reactive.function.client.WebClient;
 
 /**
- * MCP 클라이언트 목록을 관리하고 동적 재연결을 지원하는 홀더.
- *
- * 설계 결정:
- *   - MCP 서버 없이 클라이언트 단독 기동 가능 (일반 채팅만 동작)
- *   - 서버가 나중에 올라오면 재연결 시도 가능 (클라이언트 재시작 불필요)
- *   - 재연결 시 WebClientStreamableHttpTransport를 매번 새로 생성:
- *     싱글톤 트랜스포트는 연결 실패 후 내부 상태가 깨져 재사용 불가 — 신규 인스턴스 필수
- *   - tryReconnect()는 블로킹(최대 10초)이므로 boundedElastic 스케줄러에서 호출할 것
- *   - 쿨다운(5초): 서버 없는 동안 연속 요청이 올 때 재시도 횟수 제한
+ * @deprecated McpServerRegistry로 대체됨. 현재 어디에서도 참조되지 않으며 추후 삭제 예정.
  */
+@Deprecated
 @Slf4j
 public class McpClientHolder {
 
@@ -157,7 +150,7 @@ public class McpClientHolder {
                 .getToolCallbacks();
     }
 
-    /** 업로드용 단일 클라이언트. 미연결 시 null 반환. */
+    /** 적재용 단일 클라이언트. 미연결 시 null 반환. */
     public synchronized McpAsyncClient getFirstClient() {
         return clients.isEmpty() ? null : clients.get(0);
     }

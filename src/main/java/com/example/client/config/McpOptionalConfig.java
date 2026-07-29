@@ -11,18 +11,17 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.reactive.function.client.WebClient;
 
 /**
- * MCP 클라이언트 선택적 초기화 구성.
+ * MCP 서버 레지스트리 구성.
  *
- * McpClientAutoConfiguration은 컨텍스트 초기화 시 MCP 서버에 blocking 연결을 시도하여,
- * 서버가 없으면 기동 자체가 실패한다. 이 클래스는 그 대신 McpClientHolder를 제공한다:
- *   - 기동 시 연결 시도 → 성공하면 즉시 MCP 기능 사용 가능
- *   - 기동 시 연결 실패 → 빈 목록으로 시작, 이후 RAG 요청 시 동적 재연결 시도
- *   - 재연결 시 트랜스포트를 매번 새로 생성 (기존 인스턴스 재사용 불가)
+ * McpClientAutoConfiguration은 컨텍스트 초기화 시 MCP 서버에 blocking 연결을 시도하여
+ * 서버가 없으면 기동 자체가 실패한다. McpServerRegistry는 이를 대체한다:
+ *   - 기동 시 모든 서버 연결 시도 (실패해도 기동 계속)
+ *   - 서버별 상태 추적 (DISCONNECTED / CONNECTED / FAILED)
+ *   - UI에서 connect/disconnect 버튼으로 명시적 제어
+ *   - HTTP + stdio 서버 통합 관리
  *
  * application.yml에서 McpClientAutoConfiguration, McpToolCallbackAutoConfiguration을
  * spring.autoconfigure.exclude로 제외해야 이 구성이 충돌 없이 동작한다.
- * StreamableHttpWebFluxTransportAutoConfiguration은 제외하지 않는다
- * — McpStreamableHttpClientProperties 빈(URL, endpoint 등)을 제공하기 때문.
  */
 @Slf4j
 @Configuration
@@ -38,30 +37,32 @@ public class McpOptionalConfig {
     private String mcpApiKey;
 
     @Bean
-    public McpClientHolder mcpClientHolder(
-            McpStreamableHttpClientProperties streamableProperties,
+    public McpServerRegistry mcpServerRegistry(
+            McpStreamableHttpClientProperties httpProperties,
+            AppStdioMcpProperties stdioProperties,
             ObjectProvider<WebClient.Builder> webClientBuilderProvider,
             ObjectProvider<ObjectMapper> objectMapperProvider,
             ObjectProvider<ClientMcpAsyncHandlersRegistry> registryProvider) {
 
         ObjectMapper objectMapper = objectMapperProvider.getIfAvailable(ObjectMapper::new);
-        ClientMcpAsyncHandlersRegistry registry = registryProvider.getIfAvailable();
+        ClientMcpAsyncHandlersRegistry handlerRegistry = registryProvider.getIfAvailable();
 
-        McpClientHolder holder = new McpClientHolder(
-                streamableProperties,
+        McpServerRegistry registry = new McpServerRegistry(
+                httpProperties,
+                stdioProperties,
                 webClientBuilderProvider,
                 objectMapper,
-                registry,
+                handlerRegistry,
                 requestTimeoutMs,
                 mcpClientId,
                 mcpApiKey);
 
-        // 기동 시 초기 연결 시도 (실패해도 기동은 계속)
-        boolean connected = holder.tryReconnect();
-        if (!connected) {
-            log.warn("[MCP] 초기 연결 실패 — 일반 채팅만 가능. RAG 요청 시 자동 재연결 시도.");
-        }
+        // 기동 시 전체 연결 시도 (실패해도 기동 계속, UI에서 재연결 가능)
+        registry.tryConnectAll();
 
-        return holder;
+        // JVM 종료 시 stdio 프로세스 등 리소스 정리
+        Runtime.getRuntime().addShutdownHook(new Thread(registry::shutdown));
+
+        return registry;
     }
 }
