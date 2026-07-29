@@ -24,7 +24,7 @@ import org.springframework.ai.tool.ToolCallback;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import com.example.client.config.McpClientHolder;
+import com.example.client.config.McpServerRegistry;
 import com.example.client.service.ChatService;
 
 import io.modelcontextprotocol.spec.McpTransportSessionNotFoundException;
@@ -47,7 +47,7 @@ public class ChatServiceImpl extends EgovAbstractServiceImpl implements ChatServ
     private final ChatClient chatClient;
     private final ChatMemory chatMemory;
     private final MessageChatMemoryAdvisor messageChatMemoryAdvisor;
-    private final McpClientHolder mcpClientHolder;
+    private final McpServerRegistry mcpServerRegistry;
     private final RewriteQueryTransformer rewriteQueryTransformer;
     private final TranslationQueryTransformer translationQueryTransformer;
 
@@ -58,39 +58,17 @@ public class ChatServiceImpl extends EgovAbstractServiceImpl implements ChatServ
     private boolean rewriteEnabled;
 
     /**
-     * RAG 탭: searchDocuments 강제 선호출 방식.
-     *
-     * MCP 미연결 시 동작:
-     *   - 쿨다운 만료: "재연결 시도 중..." 안내 → 재연결 시도 → 성공 시 RAG, 실패 시 오류
-     *   - 쿨다운 중:   즉시 "서버 연결 필요" 오류 반환 (재연결 시도 없음)
+     * @deprecated 서버 상태 패널 + 단일 탭 방식으로 전환. {@link #streamSimpleResponse} 사용.
+     *             searchDocuments는 LLM이 연결된 도구 목록에서 자율적으로 호출한다.
      */
+    @Deprecated
     @Override
     public Flux<ChatResponse> streamRagResponse(String message, String model, String sessionId) {
         log.info("RAG 스트리밍 질의 - 메시지: {}, 모델: {}, 세션: {}", message, model, sessionId);
 
-        if (!mcpClientHolder.isConnected()) {
-            if (!mcpClientHolder.canAttemptReconnect()) {
-                log.warn("RAG: MCP 미연결 + 쿨다운 중 — 즉시 오류 반환");
-                return Flux.just(singleMessageResponse(
-                        "MCP 서버 연결이 없습니다. 잠시 후 다시 시도하거나 일반 채팅 탭을 이용하세요."));
-            }
-
-            log.info("RAG: MCP 미연결 — 재연결 시도 시작");
-            return Flux.concat(
-                    Flux.just(singleMessageResponse("MCP 서버 재연결을 시도합니다...")),
-                    Mono.fromCallable(mcpClientHolder::tryReconnect)
-                            .subscribeOn(Schedulers.boundedElastic())
-                            .flatMapMany(connected -> {
-                                if (!connected) {
-                                    log.warn("RAG: 재연결 실패");
-                                    return Mono.delay(Duration.ofMillis(800))
-                                            .thenMany(Flux.just(singleMessageResponse(
-                                                    "MCP 서버 연결에 실패했습니다. 서버를 먼저 기동하고 다시 시도하세요.\n"
-                                                            + "일반 채팅 탭은 서버 없이도 사용할 수 있습니다.")));
-                                }
-                                log.info("RAG: 재연결 성공 — RAG 흐름 진행");
-                                return executeRagFlow(message, model, sessionId);
-                            }));
+        if (!mcpServerRegistry.hasAnyConnected()) {
+            return Flux.just(singleMessageResponse(
+                    "MCP 서버 연결이 없습니다. 사이드바의 MCP 서버 패널에서 [연결] 버튼을 눌러 연결하세요."));
         }
 
         return executeRagFlow(message, model, sessionId);
@@ -106,11 +84,15 @@ public class ChatServiceImpl extends EgovAbstractServiceImpl implements ChatServ
     public Flux<ChatResponse> streamSimpleResponse(String message, String model, String sessionId) {
         log.info("일반 스트리밍 질의 - 메시지: {}, 모델: {}, 세션: {}", message, model, sessionId);
 
-        return Mono.fromCallable(() -> mcpClientHolder.getToolCallbacks())
+        return Mono.fromCallable(() -> mcpServerRegistry.getToolCallbacks())
                 .subscribeOn(Schedulers.boundedElastic())
                 .retryWhen(Retry.fixedDelay(1, Duration.ofSeconds(2))
                         .filter(ChatServiceImpl::isSessionError)
                         .doBeforeRetry(s -> log.warn("일반: MCP 세션 만료 감지 — 재연결 후 재시도")))
+                .onErrorResume(e -> {
+                    log.warn("일반: 도구 콜백 획득 실패 — 도구 없이 진행: {}", e.getMessage());
+                    return Mono.just(new ToolCallback[0]);
+                })
                 .flatMapMany(callbacks -> {
                     ChatClientRequestSpec requestSpec = chatClient.prompt()
                             .user(message)
@@ -123,11 +105,19 @@ public class ChatServiceImpl extends EgovAbstractServiceImpl implements ChatServ
                                 .build());
                     }
 
-                    return requestSpec
+                    Flux<ChatResponse> responseFlux = requestSpec
                             .advisors(messageChatMemoryAdvisor)
                             .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, sessionId))
                             .stream()
                             .chatResponse();
+
+                    if (callbacks.length == 0 && mcpServerRegistry.hasAnyServer()) {
+                        return Flux.concat(
+                                Flux.just(singleMessageResponse(
+                                        "*MCP 서버 미연결 — RAG 없이 응답합니다*\n\n")),
+                                responseFlux);
+                    }
+                    return responseFlux;
                 })
                 .doOnError(e -> log.error("일반 스트리밍 오류 - 세션: {}", sessionId, e));
     }
@@ -136,9 +126,11 @@ public class ChatServiceImpl extends EgovAbstractServiceImpl implements ChatServ
     // private helpers
     // ─────────────────────────────────────────────────────────────────────────
 
+    /** @deprecated {@link #streamRagResponse} 와 함께 제거 예정. */
+    @Deprecated
     private Flux<ChatResponse> executeRagFlow(String message, String model, String sessionId) {
         return Mono.fromCallable(() -> {
-                    ToolCallback[] callbacks = mcpClientHolder.getToolCallbacks();
+                    ToolCallback[] callbacks = mcpServerRegistry.getToolCallbacks();
 
                     log.info("MCP 도구 목록 ({} 개): {}",
                             callbacks.length,

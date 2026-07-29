@@ -30,8 +30,9 @@ public class ChatController {
     private final ChatSessionService chatSessionService;
 
     /**
-     * RAG 기반 스트리밍 응답 생성 (searchDocuments 강제 선호출 + 전체 MCP 도구 제공)
+     * @deprecated 서버 상태 패널 + 단일 탭 방식으로 전환. /api/chat/simple/stream 을 사용.
      */
+    @Deprecated
     @GetMapping(value = "/rag/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ChatResponse> streamRagResponse(
             @RequestParam(value = "message", defaultValue = "Tell me about this document") String message,
