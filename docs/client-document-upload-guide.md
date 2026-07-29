@@ -1,24 +1,28 @@
-# 클라이언트 문서 업로드 & RAG 임베딩 가이드
+# 클라이언트 문서 적재 & RAG 임베딩 가이드
 
 > 프로젝트: `my-webflux-mcp-client` / `my-webflux-mcp-server`
-> Spring AI 버전: `1.1.2`
-> 작성일: 2026-03-05
+> Spring AI 버전: `1.1.8`
+> 작성일: 2026-03-05 / 최종 수정: 2026-07-28
 
 ---
 
 ## 1. 기능 개요
 
-클라이언트 로컬에 있는 PDF / 마크다운 파일을 서버의 RAG 벡터 DB(PgVector)에 임베딩하는 보조 기능입니다.
+클라이언트 로컬에 있는 PDF / 마크다운 / 텍스트 파일을 서버의 RAG 벡터 DB(PgVector)에 임베딩하는 보조 기능입니다.
+
+> **"적재"란?** 파일을 서버 디스크에 전송하는 것이 아닙니다.
+> 파일 내용을 청킹·임베딩하여 벡터 DB에 저장하는 작업입니다. 원본 파일은 클라이언트 측에만 남습니다.
 
 ### 1-1. 주 기능과의 차이
 
-| 구분 | 주 기능 (서버 자체 임베딩) | 보조 기능 (클라이언트 업로드 임베딩) |
+| 구분 | 주 기능 (서버 자체 임베딩) | 보조 기능 (클라이언트 적재 임베딩) |
 |------|--------------------------|--------------------------------------|
-| 트리거 | `POST /api/documents/reindex` (서버 직접 호출) | `POST /api/documents/upload` (클라이언트 경유) |
-| 문서 위치 | 서버 `C:/workspace-test/upload/data` | 클라이언트 `C:/workspace-test/upload/client_data` 또는 브라우저 파일 선택 |
+| 트리거 | `POST /api/documents/reindex` (서버 직접 호출) | `POST /api/documents/ingest` (클라이언트 경유) |
+| 문서 위치 | 서버 `C:/workspace-test/upload/data` | 클라이언트 로컬 또는 브라우저 파일 선택 |
 | 진행 방식 | 서버 내부 CompletableFuture | MCP Tool 호출 → 완료 대기 후 결과 반환 |
 | 실시간 진행률 | 없음 | 없음 (완료 후 결과 일괄 반환) |
 | 문서 요약 | 없음 | MCP Sampling → 클라이언트 Ollama 위임 |
+| 고아 정리 대상 | O (디스크 스캔 기반) | X (sourceClient 있으므로 제외) |
 
 ### 1-2. 활용하는 MCP 기능
 
@@ -30,7 +34,7 @@
 | **Sampling** | 서버 → 클라이언트 → 서버 | 서버가 클라이언트의 Ollama LLM에 문서 요약을 위임 |
 
 > **참고**: 현재 클라이언트 구현은 서버의 Progress 알림을 별도 UI에 표시하지 않습니다.
-> 업로드는 MCP Tool 완료까지 동기 대기 후 최종 결과를 반환하는 방식으로 동작합니다.
+> 적재는 MCP Tool 완료까지 동기 대기 후 최종 결과를 반환하는 방식으로 동작합니다.
 
 ---
 
@@ -41,13 +45,13 @@
 ```
 [브라우저 / curl]
     │
-    └── POST /api/documents/upload
+    └── POST /api/documents/ingest
          │  (multipart/form-data)
          ▼
 [DocumentUploadController]
     │  base64 인코딩
     ▼
-[McpAsyncClient.callTool("uploadAndIndexDocument")]
+[McpAsyncClient.callTool("ingestDocument")]
     │  (MCP Tool 완료까지 reactive 대기)
     ▼
 [MCP 서버 — DocumentClientUploadServiceImpl]
@@ -75,10 +79,10 @@
 
 | 클래스 | 위치 | 역할 |
 |--------|------|------|
-| `DocumentClientUploadServiceImpl` | 서버 | `@McpTool uploadAndIndexDocument` — ETL + Progress 전송 + Sampling 요청 |
+| `DocumentClientUploadServiceImpl` | 서버 | `@McpTool ingestDocument` — ETL + Progress 전송 + Sampling 요청 |
 | `DocumentUploadController` | 클라이언트 | REST 엔드포인트, `McpAsyncClient.callTool()` 호출, 완료 결과 반환 |
 | `McpClientEventHandler` | 클라이언트 | `@McpSampling` → Ollama 위임, `@McpLogging` → 서버 로그 출력 |
-| `upload.html` | 클라이언트 | 드래그&드롭 업로드 UI, 완료/실패 상태 표시 |
+| `ingest.html` | 클라이언트 | 드래그&드롭 적재 UI, 완료/실패 상태 표시 |
 
 ---
 
@@ -87,13 +91,13 @@
 ### 3-1. MCP Tool 시그니처
 
 ```java
-@McpTool(name = "uploadAndIndexDocument", description = "...")
-public Mono<String> uploadAndIndexDocument(
+@McpTool(name = "ingestDocument", description = "...")
+public Mono<String> ingestDocument(
         McpAsyncRequestContext ctx,          // MCP 컨텍스트 (Progress/Sampling 전송)
         @McpToolParam(...) String jobId,     // 작업 추적용 ID (클라이언트 자동 생성)
         @McpToolParam(...) String filename,  // 파일명 (예: guide.md, report.pdf)
-        @McpToolParam(...) String base64Content, // Base64 인코딩된 파일 내용
-        @McpToolParam(...) String mimeType   // application/pdf 또는 text/markdown
+        @McpToolParam(...) String content,   // 파일 내용 (텍스트: UTF-8, PDF: Base64)
+        @McpToolParam(...) String mimeType   // application/pdf, text/markdown, text/plain
 )
 ```
 
@@ -103,9 +107,10 @@ public Mono<String> uploadAndIndexDocument(
 ### 3-2. ETL 파이프라인 단계
 
 ```
-[1/4] base64 디코딩 + 텍스트 추출
-   ├── PDF  → PagePdfDocumentReader(ByteArrayResource)  → 페이지별 Document
-   └── MD   → UTF-8 디코딩 → 단일 Document
+[1/4] 텍스트 추출
+   ├── PDF  → base64 디코딩 → PagePdfDocumentReader(ByteArrayResource) → 페이지별 Document
+   ├── MD   → UTF-8 디코딩 → 단일 Document
+   └── TXT  → UTF-8 디코딩 → 단일 Document
         ↓  ctx.progress(1/4, "텍스트 추출 완료")
 
 [2/4] MCP Sampling — 클라이언트 Ollama에 문서 요약 위임
@@ -121,7 +126,7 @@ public Mono<String> uploadAndIndexDocument(
 
 [4/4] 벡터 저장소 임베딩 + 메타데이터 저장
    ├── pgVectorStore.add(chunks)  → ONNX 768차원 임베딩
-   └── DocumentMetadata 저장 (filename, chunkIndex, contentHash, indexedAt)
+   └── DocumentMetadata 저장 (filename, chunkIndex, contentHash, indexedAt, sourceClient)
         ↓  ctx.progress(4/4, "임베딩 완료 (N개 청크 저장)")
         └── Mono<String> 완료 메시지 반환
 ```
@@ -193,39 +198,29 @@ List<Document> pages = reader.read();
 클라이언트는 MCP Tool 호출 완료까지 reactive 방식으로 대기한 후 결과를 반환합니다.
 
 ```
-POST /api/documents/upload (multipart)
+POST /api/documents/ingest (multipart)
     → DataBufferUtils.join() → 파일 바이트 수집
-    → Base64 인코딩
-    → McpAsyncClient.callTool("uploadAndIndexDocument", args)
+    → Base64 인코딩 (PDF) 또는 UTF-8 변환 (MD/TXT)
+    → McpAsyncClient.callTool("ingestDocument", args)
     → (MCP Tool 처리 중 — 서버에서 Progress/Sampling 처리)
     → Mono<CallToolResult> 응답
     → 200 OK + {success: true, filename, message}
 ```
 
-`jobId`는 컨트롤러가 자동 생성합니다 (`"upload-" + System.currentTimeMillis()`).
+`jobId`는 컨트롤러가 자동 생성합니다 (`"ingest-" + System.currentTimeMillis()`).
 
 ### 4-2. `DocumentUploadController` — McpAsyncClient 주입
-
-Spring AI 자동 구성은 `McpAsyncClient`를 `List<McpAsyncClient>`로 등록합니다.
-`mcp-server` 단일 연결이므로 인덱스 0의 클라이언트를 사용합니다.
-
-```java
-public DocumentUploadController(List<McpAsyncClient> mcpAsyncClients) {
-    this.mcpAsyncClient = mcpAsyncClients.get(0);
-}
-```
 
 **MCP Tool 직접 호출 패턴:**
 
 ```java
 Map<String, Object> args = new HashMap<>();
-args.put("jobId", "upload-" + System.currentTimeMillis());
+args.put("jobId", "ingest-" + System.currentTimeMillis());
 args.put("filename", filename);
-args.put("base64Content", base64);
+args.put("content", content);
 args.put("mimeType", mimeType);
 
-mcpAsyncClient.callTool(
-    new McpSchema.CallToolRequest("uploadAndIndexDocument", args))
+client.callTool(new McpSchema.CallToolRequest("ingestDocument", args))
     .map(result -> ((McpSchema.TextContent) result.content().get(0)).text())
     ...
 ```
@@ -250,7 +245,7 @@ Progress 알림(`ctx.progress()`)은 서버에서 클라이언트로 전송되�
 
 ## 5. REST API 명세
 
-### 5-1. `POST /api/documents/upload` — 파일 업로드
+### 5-1. `POST /api/documents/ingest` — 파일 적재
 
 | 항목 | 값 |
 |------|-----|
@@ -258,7 +253,7 @@ Progress 알림(`ctx.progress()`)은 서버에서 클라이언트로 전송되�
 | Content-Type | `multipart/form-data` |
 | 파라미터 | `file` (FilePart) |
 | 최대 파일 크기 | 50MB |
-| 지원 형식 | `.pdf`, `.md` |
+| 지원 형식 | `.pdf`, `.md`, `.txt` |
 | 응답 방식 | 완료까지 대기 후 200 OK 반환 |
 
 **성공 응답 (200 OK):**
@@ -267,7 +262,7 @@ Progress 알림(`ctx.progress()`)은 서버에서 클라이언트로 전송되�
 {
   "success": true,
   "filename": "document.pdf",
-  "message": "[upload-1710000000000] document.pdf 임베딩 완료 — 5개 청크가 RAG 지식 베이스에 추가되었습니다."
+  "message": "[ingest-1710000000000] document.pdf 임베딩 완료 — 5개 청크가 RAG 지식 베이스에 추가되었습니다."
 }
 ```
 
@@ -276,7 +271,7 @@ Progress 알림(`ctx.progress()`)은 서버에서 클라이언트로 전송되�
 ```json
 {
   "success": false,
-  "message": "PDF 또는 마크다운(.md) 파일만 지원합니다."
+  "message": "PDF, 마크다운(.md), 텍스트(.txt) 파일만 지원합니다."
 }
 ```
 
@@ -298,21 +293,21 @@ POST /api/documents/index-local?filename=guide.md
 
 ---
 
-## 6. 업로드 UI (`/upload`)
+## 6. 적재 UI (`/ingest`)
 
-`GET http://localhost:8080/upload` 에서 접근합니다.
+`GET http://localhost:8080/ingest` 에서 접근합니다.
 
 ### UI 구성
 
 ```
 ┌─────────────────────────────────────────────┐
-│ RAG 문서 업로드            ← 채팅으로 돌아가기 │
+│ RAG 지식 베이스 적재        ← 채팅으로 돌아가기 │
 ├─────────────────────────────────────────────┤
-│ 문서 선택 및 업로드                           │
+│ 문서 선택 및 적재                             │
 │ ┌─────────────────────────────────────────┐ │
 │ │  📄                                     │ │
 │ │  여기에 파일을 끌어다 놓거나 클릭하세요  │ │
-│ │  .pdf / .md 지원                        │ │
+│ │  .pdf / .md / .txt 지원                 │ │
 │ │  selected: guide.md (12.3 KB)           │ │
 │ └─────────────────────────────────────────┘ │
 │ [임베딩 시작]                                │
@@ -321,7 +316,7 @@ POST /api/documents/index-local?filename=guide.md
 │   걸릴 수 있습니다...                        │
 │   (완료 후 결과 표시)                        │
 │                                             │
-│ ✓ [업로드 파일명] 임베딩 완료 — N개 청크...  │
+│ ✓ [파일명] 임베딩 완료 — N개 청크...         │
 └─────────────────────────────────────────────┘
 ```
 
@@ -329,7 +324,7 @@ POST /api/documents/index-local?filename=guide.md
 
 1. 파일 선택 (드래그&드롭 또는 클릭)
 2. `[임베딩 시작]` 클릭
-3. `POST /api/documents/upload` 요청 전송 (동기 대기)
+3. `POST /api/documents/ingest` 요청 전송 (동기 대기)
 4. 서버 측에서 ETL 처리 (Progress 전송은 서버 로그에서 확인)
 5. 완료 후 성공/실패 메시지 표시
 
@@ -340,10 +335,11 @@ POST /api/documents/index-local?filename=guide.md
 ### 사전 준비
 
 ```
-1. PostgreSQL (ragdb — 서버용 / chatdb — 클라이언트용) 기동
-2. Ollama 기동 및 qwen3-4b:Q4_K_M 모델 로드
+1. PostgreSQL (mcpdb — 서버용 / chatdb — 클라이언트용) 기동
+2. Ollama 기동 및 모델 로드
 3. my-webflux-mcp-server 기동  (포트 9090)
 4. my-webflux-mcp-client 기동  (포트 8080)
+5. 채팅 화면 사이드바에서 mcp-server 연결 확인
 ```
 
 테스트 파일 준비:
@@ -357,20 +353,20 @@ C:/workspace-test/upload/client_data/sample.pdf  (테스트용 PDF, 선택)
 ### 7-1. 브라우저 UI 테스트 (권장)
 
 ```
-1. http://localhost:8080/upload 접속
+1. http://localhost:8080/ingest 접속
 2. sample.md 또는 sample.pdf 파일 선택 (드래그&드롭 또는 클릭)
 3. [임베딩 시작] 버튼 클릭
 4. 로딩 메시지 표시 → 완료 후 결과 메시지 확인
 5. 완료 후 http://localhost:8080/ (채팅)으로 이동
-6. 업로드한 문서의 내용 관련 질문 → RAG 검색 결과 확인
+6. 적재한 문서의 내용 관련 질문 → RAG 검색 결과 확인
 ```
 
 ---
 
-### 7-2. curl — 파일 업로드
+### 7-2. curl — 파일 적재
 
 ```bash
-curl -s -X POST http://localhost:8080/api/documents/upload \
+curl -s -X POST http://localhost:8080/api/documents/ingest \
   -F "file=@C:/workspace-test/upload/client_data/sample.md"
 ```
 
@@ -380,7 +376,7 @@ curl -s -X POST http://localhost:8080/api/documents/upload \
 {
   "success": true,
   "filename": "sample.md",
-  "message": "[upload-1710000000000] sample.md 임베딩 완료 — 3개 청크가 RAG 지식 베이스에 추가되었습니다."
+  "message": "[ingest-1710000000000] sample.md 임베딩 완료 — 3개 청크가 RAG 지식 베이스에 추가되었습니다."
 }
 ```
 
@@ -397,10 +393,10 @@ curl -s -X POST \
 
 ---
 
-### 7-4. curl — PDF 업로드 테스트
+### 7-4. curl — PDF 적재 테스트
 
 ```bash
-curl -s -X POST http://localhost:8080/api/documents/upload \
+curl -s -X POST http://localhost:8080/api/documents/ingest \
   -F "file=@C:/workspace-test/upload/client_data/report.pdf"
 ```
 
@@ -409,8 +405,8 @@ curl -s -X POST http://localhost:8080/api/documents/upload \
 ### 7-5. HTTP 파일 — IntelliJ / VS Code REST Client
 
 ```http
-### 1. 파일 업로드 (완료 대기)
-POST http://localhost:8080/api/documents/upload
+### 1. 파일 적재 (완료 대기)
+POST http://localhost:8080/api/documents/ingest
 Content-Type: multipart/form-data; boundary=----Boundary
 
 ------Boundary
@@ -431,15 +427,15 @@ POST http://localhost:8080/api/documents/index-local?filename=sample.md
 채팅 페이지(`http://localhost:8080/`)에서 다음과 같이 질문합니다:
 
 ```
-"방금 업로드한 [문서명] 파일의 내용을 요약해 줘"
-"[업로드한 문서의 핵심 키워드]에 대해 설명해 줘"
+"방금 적재한 [문서명] 파일의 내용을 요약해 줘"
+"[적재한 문서의 핵심 키워드]에 대해 설명해 줘"
 ```
 
 또는 Swagger UI(`http://localhost:8080/swagger-ui.html`)에서 직접 MCP Tool 확인:
 
 ```
-describeKnowledgeBase  → 인덱싱된 파일 목록에 업로드 파일 포함 여부 확인
-searchDocuments(query) → 업로드 문서 관련 내용 검색 결과 확인
+describeKnowledgeBase  → 인덱싱된 파일 목록에 적재 파일 포함 여부 확인
+searchDocuments(query) → 적재 문서 관련 내용 검색 결과 확인
 ```
 
 ---
@@ -449,23 +445,23 @@ searchDocuments(query) → 업로드 문서 관련 내용 검색 결과 확인
 정상 처리 시 서버 로그에 다음이 출력됩니다:
 
 ```
-[업로드] 요청 수신 — jobId: upload-1710000000000, filename: sample.md, mimeType: text/markdown
-[MD 추출] sample.md — 1234자
-[업로드][upload-1710000000000] 텍스트 추출 완료 — 1페이지
+[적재] 요청 수신 — jobId: ingest-1710000000000, filename: sample.md, mimeType: text/markdown
+[텍스트 추출][markdown] sample.md — 1234자
+[적재][ingest-1710000000000] 텍스트 추출 완료 — 1페이지
 [Sampling] 클라이언트 Sampling 미지원 — 요약 생략   ← Ollama Sampling 미지원 시
-[업로드][upload-1710000000000] Ollama 요약 완료 — 길이: 85자   ← Sampling 성공 시
-[업로드][upload-1710000000000] 청킹 완료 — 3개 청크
-[업로드][upload-1710000000000] 임베딩 완료 — 3개 청크 저장
+[적재][ingest-1710000000000] 요약 완료 — 85자        ← Sampling 성공 시
+[적재][ingest-1710000000000] 청킹 완료 — 3개 청크
+[적재][ingest-1710000000000] 임베딩 완료 — 3개 청크 저장
 [메타데이터 저장] sample.md — 3개 청크, 요약: 85자
 ```
 
 클라이언트 로그:
 
 ```
-[업로드] 파일 수신 — filename: sample.md
+[적재] 파일 수신 — filename: sample.md
 [MCP] 샘플링 요청 수신 — 메시지 수: 1, maxTokens: 300   ← Sampling 발생 시
 [MCP] 샘플링 응답 생성 완료 — 길이: 85자
-[업로드] MCP Tool 완료 — result: [upload-1710000000000] sample.md 임베딩 완료 — 3개 청크
+[적재] MCP Tool 완료
 ```
 
 ---
@@ -474,12 +470,14 @@ searchDocuments(query) → 업로드 문서 관련 내용 검색 결과 확인
 
 | 증상 | 원인 | 해결 |
 |------|------|------|
-| `MCP Async Client가 등록되지 않았습니다` | 서버 미기동 또는 `application.yml` URL 오류 | 서버 기동 확인, `spring.ai.mcp.client.streamable-http.connections.mcp-server.url` 확인 |
-| 업로드 요청이 타임아웃됨 | 대용량 파일 처리 시간 초과 | `request-timeout` 값 증가 (예: 120000ms) |
+| `MCP 서버가 연결되지 않았습니다` | 서버 미기동 또는 `application.yml` URL 오류 | 서버 기동 확인, 채팅 화면에서 mcp-server 연결 |
+| 적재 요청이 타임아웃됨 | 대용량 파일 처리 시간 초과 | `request-timeout` 값 증가 (예: `120s`) |
 | `(Sampling 미지원)` 요약 | 클라이언트 Sampling 기능 비활성화 | 정상 동작. Sampling은 선택적 기능으로, 미지원 시 요약 없이 계속 진행 |
-| PDF 추출 실패 | 비표준 PDF 또는 암호화된 PDF | 표준 PDF 사용. 암호화 해제 후 업로드 |
-| `파일 크기가 50MB를 초과합니다` | 대용량 파일 | 파일 분할 후 업로드 |
+| PDF 추출 실패 | 비표준 PDF 또는 암호화된 PDF | 표준 PDF 사용. 암호화 해제 후 적재 |
+| `파일 크기가 50MB를 초과합니다` | 대용량 파일 | 파일 분할 후 적재 |
 | 청크 수 0개 | 내용이 너무 짧거나 비어있음 | `min-chunk-length-to-embed` (기본값 50자) 이상의 내용 필요 |
+| `인증 실패 — 적재가 거부되었습니다` | MCP_API_KEY 미설정 또는 불일치 | 서버·클라이언트 `app.mcp-api-key` 동일하게 설정 |
+| reindex 후 적재 문서 사라짐 | (구버전 이슈) `sourceClient IS NULL` 조건 미적용 | 현행 버전에서 수정됨 — MCP 적재 문서는 고아 정리 대상 제외 |
 
 ---
 
@@ -495,23 +493,21 @@ app:
     min-chunk-length-to-embed: 50 # 임베딩 최소 길이
     normalization:
       enabled: true              # false 시 정규화 건너뜀
+  security:
+    api-keys:
+      - "${MCP_API_KEY:}"        # 미설정 시 빈 문자열 → 모든 적재 차단
 ```
 
-### 클라이언트 (`my-webflux-mcp-client/src/main/java/.../DocumentUploadController.java`)
-
-```java
-private static final String CLIENT_DATA_DIR = "C:/workspace-test/upload/client_data";
-private static final long MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
-```
-
-### 클라이언트 MCP 타임아웃 (`application.yml`)
+### 클라이언트 (`application.yml`)
 
 ```yaml
 spring:
   ai:
     mcp:
       client:
-        request-timeout: 60000  # MCP 요청 타임아웃 (ms) — 대용량 파일 시 증가 필요
+        request-timeout: 60s    # MCP 요청 타임아웃 — 대용량 파일 시 증가 필요
+app:
+  mcp-api-key: "${MCP_API_KEY:}" # 서버의 api-keys 목록과 동일한 값으로 설정
 ```
 
 ---
@@ -522,13 +518,14 @@ spring:
 
 | 파일 | 설명 |
 |------|------|
-| `service/impl/DocumentClientUploadServiceImpl.java` | `@McpTool uploadAndIndexDocument` — ETL 파이프라인 + Progress 전송 + Sampling 요청 |
+| `service/impl/DocumentClientUploadServiceImpl.java` | `@McpTool ingestDocument` — ETL 파이프라인 + Progress 전송 + Sampling 요청 |
+| `repository/DocumentMetadataRepository.java` | `findAllDistinctFilenames()` — `sourceClient IS NULL` 조건으로 MCP 적재 문서 고아 정리 제외 |
 
 ### 클라이언트 (my-webflux-mcp-client)
 
 | 파일 | 설명 |
 |------|------|
-| `controller/DocumentUploadController.java` | 업로드 REST API (multipart, 로컬 인덱싱) — MCP Tool 완료 대기 후 결과 반환 |
-| `controller/UploadPageController.java` | `GET /upload` → upload.html |
-| `resources/templates/upload.html` | 드래그&드롭 업로드 UI, 완료 결과 표시 |
+| `controller/DocumentUploadController.java` | 적재 REST API (`/ingest`, `/index-local`) — MCP Tool 완료 대기 후 결과 반환 |
+| `controller/UploadPageController.java` | `GET /ingest` → ingest.html |
+| `resources/templates/ingest.html` | 드래그&드롭 적재 UI, 완료 결과 표시 |
 | `handler/McpClientEventHandler.java` | `@McpSampling` → Ollama 위임, `@McpLogging` → 서버 로그 출력 |
