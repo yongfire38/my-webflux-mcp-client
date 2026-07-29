@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import com.example.client.config.AppStdioMcpProperties.StdioServerDef;
 import com.example.client.dto.ServerStatusDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.client.McpAsyncClient;
@@ -46,20 +47,17 @@ public class McpServerRegistry {
     // ─────────────────────────────────────────────────────────────────────────
 
     private static class ServerConfig {
-        final String name;
         final String type;
         final ConnectionParameters httpParams;
-        final AppStdioMcpProperties.StdioServerDef stdioParams;
+        final StdioServerDef stdioParams;
 
         ServerConfig(String name, ConnectionParameters httpParams) {
-            this.name = name;
             this.type = "http";
             this.httpParams = httpParams;
             this.stdioParams = null;
         }
 
-        ServerConfig(String name, AppStdioMcpProperties.StdioServerDef stdioParams) {
-            this.name = name;
+        ServerConfig(String name, StdioServerDef stdioParams) {
             this.type = "stdio";
             this.httpParams = null;
             this.stdioParams = stdioParams;
@@ -317,7 +315,7 @@ public class McpServerRegistry {
      */
     private McpAsyncClient createStdioClient(String name, ServerConfig config,
                                               ServerRuntime runtime) {
-        AppStdioMcpProperties.StdioServerDef def = config.stdioParams;
+        StdioServerDef def = config.stdioParams;
 
         ServerParameters.Builder paramsBuilder = ServerParameters.builder(def.getCommand());
         if (def.getArgs() != null && !def.getArgs().isEmpty()) {
