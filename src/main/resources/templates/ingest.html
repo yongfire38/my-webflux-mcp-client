@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>문서 업로드 — RAG 임베딩</title>
+    <title>지식 베이스 적재 — RAG 임베딩</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Segoe UI', sans-serif; background: #f5f6fa; color: #333; }
@@ -81,18 +81,30 @@
         .status.loading { display: block; background: #eaf4fd; color: #2471a3; }
         .status.success { display: block; background: #d5f5e3; color: #1a7a47; font-weight: 600; }
         .status.failure { display: block; background: #fde8e8; color: #922b21; font-weight: 600; }
+
+        .server-banner {
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .server-banner.ok  { display: block; background: #d5f5e3; color: #1a7a47; }
+        .server-banner.ng  { display: block; background: #fde8e8; color: #922b21; }
     </style>
 </head>
 <body>
 
 <div class="header">
-    <h1>RAG 문서 업로드</h1>
+    <h1>RAG 지식 베이스 적재</h1>
     <a th:href="@{/}">← 채팅으로 돌아가기</a>
 </div>
 
 <div class="container">
     <div class="card">
-        <h2>문서 선택 및 업로드</h2>
+        <h2>문서 선택 및 적재</h2>
+        <div class="server-banner" id="serverBanner"></div>
         <p style="color:#636e72; font-size:.88rem; margin-bottom:20px;">
             PDF, 마크다운(.md), 텍스트(.txt) 파일을 서버 RAG 지식 베이스에 임베딩합니다.<br>
             최대 파일 크기: 50MB
@@ -126,6 +138,27 @@
 </div>
 
 <script>
+    fetch('/api/mcp/servers/mcp-server')
+        .then(r => r.json())
+        .then(s => {
+            const banner = document.getElementById('serverBanner');
+            const uploadBtn = document.getElementById('uploadBtn');
+            if (s && s.status === 'CONNECTED') {
+                banner.className = 'server-banner ok';
+                banner.textContent = '● MCP 서버 연결됨 — 적재 가능';
+            } else {
+                banner.className = 'server-banner ng';
+                banner.textContent = '● MCP 서버 연결 안 됨 — 채팅 화면에서 서버를 먼저 연결하세요';
+                uploadBtn.disabled = true;
+                uploadBtn.title = 'MCP 서버 연결 후 사용 가능';
+            }
+        })
+        .catch(() => {
+            const banner = document.getElementById('serverBanner');
+            banner.className = 'server-banner ng';
+            banner.textContent = '● 서버 상태 확인 실패';
+        });
+
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
     const uploadBtn = document.getElementById('uploadBtn');
@@ -175,7 +208,7 @@
         formData.append('file', file);
 
         try {
-            const res = await fetch('/api/documents/upload', {
+            const res = await fetch('/api/documents/ingest', {
                 method: 'POST',
                 body: formData
             });
@@ -183,7 +216,7 @@
             const data = await res.json();
 
             if (!res.ok || data.success === false) {
-                setStatus('failure', '✗ ' + (data.message || '업로드 실패'));
+                setStatus('failure', '✗ ' + (data.message || '적재 실패'));
             } else {
                 setStatus('success', '✓ ' + (data.message || '임베딩이 완료되었습니다!'));
             }

@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.client.config.McpClientHolder;
+import com.example.client.config.McpServerRegistry;
 import io.modelcontextprotocol.client.McpAsyncClient;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpTransportSessionNotFoundException;
@@ -29,29 +29,27 @@ import reactor.util.retry.Retry;
 import java.time.Duration;
 
 /**
- * 클라이언트 로컬 문서를 서버 RAG DB에 임베딩하는 업로드 컨트롤러.
+ * 클라이언트 로컬 문서를 서버 RAG DB에 적재(임베딩)하는 컨트롤러.
  *
  * 엔드포인트:
- *   POST /api/documents/upload           파일 업로드 → MCP Tool 호출 → 완료 결과 반환
- *   POST /api/documents/index-local      로컬 파일 인덱싱 (CLIENT_DATA_DIR 기준)
+ *   POST /api/documents/ingest       파일 적재 → MCP ingestDocument 호출 → 완료 결과 반환
+ *   POST /api/documents/index-local  로컬 파일 인덱싱 (CLIENT_DATA_DIR 기준)
  *
  * 지원 형식: PDF (.pdf), 마크다운 (.md), 텍스트 (.txt)
- *
- * MCP 미연결 시: 각 요청에서 mcpClientHolder.getFirstClient() 가 null을 반환하므로 오류 응답.
- * 업로드 엔드포인트는 재연결 시도를 하지 않는다 — RAG 탭에서 재연결 후 사용할 것.
+ * MCP 미연결 시 오류 응답 반환. 적재 전 사이드바에서 서버를 먼저 연결할 것.
  */
 @Slf4j
 @RestController
 @RequestMapping("/api/documents")
 @RequiredArgsConstructor
-public class DocumentUploadController {
+public class DocumentIngestController {
 
     private static final String CLIENT_DATA_DIR = "C:/workspace-test/upload/client_data";
 
-    private final McpClientHolder mcpClientHolder;
+    private final McpServerRegistry mcpServerRegistry;
 
-    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Mono<Map<String, Object>> uploadDocument(
+    @PostMapping(value = "/ingest", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Mono<Map<String, Object>> ingestDocument(
             @RequestPart("file") FilePart filePart) {
 
         String filename = filePart.filename();
@@ -64,15 +62,15 @@ public class DocumentUploadController {
             return Mono.just(errorResponse("PDF, 마크다운(.md), 텍스트(.txt) 파일만 지원합니다."));
         }
 
-        McpAsyncClient client = mcpClientHolder.getFirstClient();
+        McpAsyncClient client = mcpServerRegistry.getClient("mcp-server");
         if (client == null) {
             return Mono.just(errorResponse(
-                    "MCP 서버가 연결되지 않았습니다. RAG 탭에서 질문을 한 번 시도하면 자동 재연결됩니다."));
+                    "MCP 서버가 연결되지 않았습니다. 사이드바의 MCP 서버 패널에서 [연결] 버튼을 눌러 연결하세요."));
         }
 
         String mimeType = getMimeType(safeFilename);
 
-        log.info("[업로드] 파일 수신 — filename: {}", safeFilename);
+        log.info("[적재] 파일 수신 — filename: {}", safeFilename);
 
         return DataBufferUtils.join(filePart.content(), 50 * 1024 * 1024)
                 .flatMap(dataBuffer -> {
@@ -83,7 +81,7 @@ public class DocumentUploadController {
                     String content = "application/pdf".equals(mimeType)
                             ? Base64.getEncoder().encodeToString(bytes)
                             : new String(bytes, StandardCharsets.UTF_8);
-                    return callMcpUploadTool(client, safeFilename, content, mimeType)
+                    return callMcpIngestTool(client, safeFilename, content, mimeType)
                             .map(result -> {
                                 Map<String, Object> response = new HashMap<>();
                                 response.put("success", true);
@@ -94,7 +92,7 @@ public class DocumentUploadController {
                 })
                 .subscribeOn(Schedulers.boundedElastic())
                 .onErrorResume(e -> {
-                    log.error("[업로드] MCP Tool 실패 — {}", e.getMessage());
+                    log.error("[적재] MCP Tool 실패 — {}", e.getMessage());
                     return Mono.just(errorResponse(e.getMessage()));
                 });
     }
@@ -108,10 +106,10 @@ public class DocumentUploadController {
             return Mono.just(errorResponse("PDF, 마크다운(.md), 텍스트(.txt) 파일만 지원합니다."));
         }
 
-        McpAsyncClient client = mcpClientHolder.getFirstClient();
+        McpAsyncClient client = mcpServerRegistry.getClient("mcp-server");
         if (client == null) {
             return Mono.just(errorResponse(
-                    "MCP 서버가 연결되지 않았습니다. RAG 탭에서 질문을 한 번 시도하면 자동 재연결됩니다."));
+                    "MCP 서버가 연결되지 않았습니다. 사이드바의 MCP 서버 패널에서 [연결] 버튼을 눌러 연결하세요."));
         }
 
         Path filePath = Paths.get(CLIENT_DATA_DIR, safeFilename);
@@ -125,7 +123,7 @@ public class DocumentUploadController {
                     String content = "application/pdf".equals(mimeType)
                             ? Base64.getEncoder().encodeToString(bytes)
                             : new String(bytes, StandardCharsets.UTF_8);
-                    return callMcpUploadTool(client, safeFilename, content, mimeType);
+                    return callMcpIngestTool(client, safeFilename, content, mimeType);
                 })
                 .map(result -> {
                     Map<String, Object> response = new HashMap<>();
@@ -144,19 +142,19 @@ public class DocumentUploadController {
     // private helpers
     // ─────────────────────────────────────────────────────────────────────────
 
-    private Mono<String> callMcpUploadTool(McpAsyncClient client,
+    private Mono<String> callMcpIngestTool(McpAsyncClient client,
                                            String filename, String content, String mimeType) {
         Map<String, Object> args = new HashMap<>();
-        args.put("jobId", "upload-" + System.currentTimeMillis());
+        args.put("jobId", "ingest-" + System.currentTimeMillis());
         args.put("filename", filename);
         args.put("content", content);
         args.put("mimeType", mimeType);
 
-        return client.callTool(new McpSchema.CallToolRequest("uploadAndIndexDocument", args))
+        return client.callTool(new McpSchema.CallToolRequest("ingestDocument", args))
                 .retryWhen(Retry.fixedDelay(1, Duration.ofSeconds(2))
                         .filter(e -> e instanceof McpTransportSessionNotFoundException
                                 || (e.getMessage() != null && e.getMessage().contains("session")))
-                        .doBeforeRetry(s -> log.warn("[업로드] MCP 세션 만료 감지 — 재연결 후 재시도")))
+                        .doBeforeRetry(s -> log.warn("[적재] MCP 세션 만료 감지 — 재연결 후 재시도")))
                 .map(result -> {
                     if (result.content() != null && !result.content().isEmpty()) {
                         Object first = result.content().get(0);

@@ -4,10 +4,10 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 
 @Controller
-public class UploadPageController {
+public class IngestPageController {
 
-    @GetMapping("/upload")
-    public String uploadPage() {
-        return "upload";
+    @GetMapping("/ingest")
+    public String ingestPage() {
+        return "ingest";
     }
 }

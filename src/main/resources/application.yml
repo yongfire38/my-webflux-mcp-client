@@ -83,10 +83,19 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
-# MCP clientInfo.name — 서버가 업로드 문서의 출처(sourceClient)를 구분하는 데 사용.
+# MCP clientInfo.name — 서버가 적재 문서의 출처(sourceClient)를 구분하는 데 사용.
 # 클라이언트를 여러 대 배포할 경우 배포마다 고유한 값으로 변경할 것
 app:
   mcp-client-id: webflux-mcp-client
+  # stdio MCP 서버 정의
+  # Windows에서 npx(.cmd)는 cmd /c 를 통해 실행해야 ProcessBuilder가 인식한다.
+  # C:/workspace-test 디렉터리를 미리 생성할 것.
+  mcp:
+    stdio:
+      servers:
+        fs-server:
+          command: "cmd"
+          args: ["/c", "npx", "-y", "@modelcontextprotocol/server-filesystem", "C:/workspace-test/upload"]
   # 서버 MCP Tool 인증 키. 서버의 app.security.api-keys 목록과 동일한 값으로 설정.
   # 환경변수 MCP_API_KEY 미설정 시 빈 문자열 → uploadAndIndexDocument 호출 시 서버에서 거부.
   mcp-api-key: "${MCP_API_KEY:}"
