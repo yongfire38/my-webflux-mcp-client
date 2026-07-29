@@ -15,18 +15,19 @@
             color: #333;
         }
 
-        /* 사이드바 스타일 */
+        /* ── 사이드바 ─────────────────────────────── */
         .sidebar {
             position: fixed;
             left: 0;
             top: 0;
-            width: 250px;
+            width: 280px;
             height: 100vh;
             background-color: #2c3e50;
             color: white;
             padding: 20px;
             box-sizing: border-box;
-            overflow-y: auto;
+            overflow-y: scroll;
+            overflow-x: hidden;
             z-index: 1000;
         }
 
@@ -39,13 +40,10 @@
             border-radius: 5px;
             cursor: pointer;
             font-size: 14px;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
             transition: background-color 0.3s;
         }
-
-        .new-chat-btn:hover {
-            background-color: #2980b9;
-        }
+        .new-chat-btn:hover { background-color: #2980b9; }
 
         .upload-doc-btn {
             width: 100%;
@@ -56,27 +54,143 @@
             border-radius: 5px;
             cursor: pointer;
             font-size: 13px;
-            margin-bottom: 20px;
-            transition: background-color 0.3s;
+            margin-bottom: 16px;
             text-decoration: none;
             display: block;
             text-align: center;
             box-sizing: border-box;
+            transition: background-color 0.3s;
+        }
+        .upload-doc-btn:hover { background-color: #219a52; }
+
+        /* ── MCP 서버 패널 ──────────────────────────── */
+        .mcp-panel {
+            margin-bottom: 16px;
+            border-top: 1px solid #3d5166;
+            padding-top: 14px;
         }
 
-        .upload-doc-btn:hover {
-            background-color: #219a52;
+        .mcp-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: #bdc3c7;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
         }
 
-        .sessions-header {
+        .mcp-refresh-btn {
+            background: none;
+            border: none;
+            color: #7f8c8d;
             font-size: 14px;
+            cursor: pointer;
+            padding: 2px 4px;
+            border-radius: 3px;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+        .mcp-refresh-btn:hover { color: #bdc3c7; }
+
+        .mcp-server-item {
+            background-color: #34495e;
+            border-radius: 5px;
+            padding: 8px 10px;
+            margin-bottom: 6px;
+            font-size: 12px;
+        }
+
+        .mcp-server-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+
+        .mcp-server-name {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 600;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .status-dot.connected  { background-color: #2ecc71; }
+        .status-dot.disconnected { background-color: #7f8c8d; }
+        .status-dot.failed     { background-color: #e74c3c; }
+
+        .server-type-badge {
+            font-size: 10px;
+            color: #95a5a6;
+            background: #2c3e50;
+            padding: 1px 5px;
+            border-radius: 3px;
+        }
+
+        .mcp-action-btn {
+            font-size: 11px;
+            padding: 3px 8px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: opacity 0.2s;
+            white-space: nowrap;
+        }
+        .mcp-action-btn:hover { opacity: 0.85; }
+        .mcp-action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .mcp-action-btn.connect    { background-color: #3498db; color: #fff; }
+        .mcp-action-btn.disconnect { background-color: #7f8c8d; color: #fff; }
+        .mcp-action-btn.retry      { background-color: #e67e22; color: #fff; }
+
+        .write-toggle {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            color: #bdc3c7;
+            cursor: pointer;
+            margin-top: 5px;
+            user-select: none;
+        }
+        .write-toggle input[type="checkbox"] { cursor: pointer; accent-color: #e67e22; }
+        .write-toggle.allowed { color: #e67e22; font-weight: 600; }
+
+        .mcp-server-tools {
+            color: #95a5a6;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+
+        .mcp-server-error {
+            color: #e74c3c;
+            font-size: 10px;
+            margin-top: 3px;
+            word-break: break-word;
+        }
+
+        /* ── 세션 목록 ────────────────────────────── */
+        .sessions-header {
+            font-size: 12px;
             font-weight: bold;
             margin-bottom: 10px;
             color: #bdc3c7;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            border-top: 1px solid #3d5166;
+            padding-top: 14px;
         }
 
         .sessions-list {
-            max-height: calc(100vh - 200px);
+            max-height: calc(100vh - 420px);
             overflow-y: auto;
         }
 
@@ -92,29 +206,12 @@
             justify-content: space-between;
             align-items: center;
         }
+        .session-item:hover  { background-color: #4a5f7a; }
+        .session-item.active { background-color: #3498db; }
 
-        .session-item:hover {
-            background-color: #4a5f7a;
-        }
-
-        .session-item.active {
-            background-color: #3498db;
-        }
-
-        .session-content {
-            flex: 1;
-            cursor: pointer;
-        }
-
-        .session-title {
-            font-weight: bold;
-            margin-bottom: 3px;
-        }
-
-        .session-time {
-            font-size: 11px;
-            color: #bdc3c7;
-        }
+        .session-content { flex: 1; cursor: pointer; }
+        .session-title   { font-weight: bold; margin-bottom: 3px; }
+        .session-time    { font-size: 11px; color: #bdc3c7; }
 
         .delete-session-btn {
             background: none;
@@ -129,16 +226,11 @@
             opacity: 0.7;
             margin-left: 8px;
         }
+        .delete-session-btn:hover { background-color: #e74c3c; color: white; opacity: 1; }
 
-        .delete-session-btn:hover {
-            background-color: #e74c3c;
-            color: white;
-            opacity: 1;
-        }
-
-        /* 메인 컨텐츠 스타일 */
+        /* ── 메인 컨텐츠 ──────────────────────────── */
         .main-content {
-            margin-left: 250px;
+            margin-left: 280px;
             min-height: 100vh;
             background-color: white;
         }
@@ -159,30 +251,7 @@
             border-radius: 5px;
         }
 
-        .tabs {
-            display: flex;
-            margin-bottom: 20px;
-            border-bottom: 1px solid #ddd;
-        }
-
-        .tab {
-            padding: 10px 20px;
-            cursor: pointer;
-            border: 1px solid transparent;
-            border-bottom: none;
-            border-radius: 5px 5px 0 0;
-            margin-right: 5px;
-        }
-
-        .tab.active {
-            background-color: #fff;
-            border-color: #ddd;
-            border-bottom-color: white;
-            margin-bottom: -1px;
-            font-weight: bold;
-        }
-
-        /* 모델 선택 영역 */
+        /* ── 모델 선택 ───────────────────────────── */
         .model-selection {
             display: flex;
             align-items: center;
@@ -208,24 +277,13 @@
             padding: 4px 8px;
             border-radius: 3px;
         }
+        .model-status.success { background-color: #d4edda; color: #155724; }
+        .model-status.warning { background-color: #fff3cd; color: #856404; }
+        .model-status.error   { background-color: #f8d7da; color: #721c24; }
 
-        .model-status.success {
-            background-color: #d4edda;
-            color: #155724;
-        }
-
-        .model-status.warning {
-            background-color: #fff3cd;
-            color: #856404;
-        }
-
-        .model-status.error {
-            background-color: #f8d7da;
-            color: #721c24;
-        }
-
+        /* ── 채팅 ────────────────────────────────── */
         .chat-container {
-            height: 400px;
+            height: 420px;
             border: 1px solid #ddd;
             border-radius: 5px;
             padding: 20px;
@@ -240,23 +298,10 @@
             border-radius: 5px;
             max-width: 80%;
         }
+        .user-message  { background-color: #007bff; color: white; margin-left: auto; text-align: right; }
+        .ai-message    { background-color: #e9ecef; color: #333; }
 
-        .user-message {
-            background-color: #007bff;
-            color: white;
-            margin-left: auto;
-            text-align: right;
-        }
-
-        .ai-message {
-            background-color: #e9ecef;
-            color: #333;
-        }
-
-        .input-container {
-            display: flex;
-            gap: 10px;
-        }
+        .input-container { display: flex; gap: 10px; }
 
         .message-input {
             flex: 1;
@@ -274,524 +319,449 @@
             border-radius: 5px;
             cursor: pointer;
             font-size: 14px;
+            transition: background-color 0.2s;
         }
-
-        .send-btn:disabled {
-            background-color: #6c757d;
-            cursor: not-allowed;
-        }
-
-        .status {
-            text-align: center;
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 5px;
-        }
-
-        .status.success {
-            background-color: #d4edda;
-            color: #155724;
-        }
-
-        .status.error {
-            background-color: #f8d7da;
-            color: #721c24;
-        }
+        .send-btn:hover    { background-color: #0069d9; }
+        .send-btn:disabled { background-color: #6c757d; cursor: not-allowed; }
 
         .loading {
             display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #3498db;
+            width: 14px;
+            height: 14px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3498db;
             border-radius: 50%;
-            animation: spin 1s linear infinite;
+            animation: spin 0.8s linear infinite;
+            vertical-align: middle;
         }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        /* 반응형 디자인 */
         @media (max-width: 768px) {
-            .sidebar {
-                width: 200px;
-            }
-
-            .main-content {
-                margin-left: 200px;
-            }
-
-            .model-selection {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
-            .model-select {
-                min-width: 150px;
-            }
+            .sidebar    { width: 220px; }
+            .main-content { margin-left: 220px; }
+            .model-selection { flex-direction: column; align-items: flex-start; }
+            .model-select { min-width: 150px; }
         }
     </style>
 </head>
 <body>
-    <!-- 사이드바 -->
-    <div class="sidebar">
-        <button class="new-chat-btn" onclick="createNewSession()">
-            + 새 채팅
-        </button>
 
-        <a class="upload-doc-btn" href="/upload" target="_blank">
-            &#8593; 문서 업로드
-        </a>
+<!-- ── 사이드바 ─────────────────────────────────────────────── -->
+<div class="sidebar">
+    <button class="new-chat-btn" onclick="createNewSession()">+ 새 채팅</button>
+    <a class="upload-doc-btn" href="/ingest" target="_blank">&#8593; 문서 적재</a>
 
-        <div class="sessions-header">채팅 목록</div>
-        <div class="sessions-list" id="sessions-list">
-            <!-- 세션 목록이 여기에 동적으로 추가됩니다 -->
+    <!-- MCP 서버 패널 -->
+    <div class="mcp-panel">
+        <div class="mcp-panel-header">
+            MCP 서버
+            <button class="mcp-refresh-btn" onclick="loadServerStatuses()" title="새로고침">↺</button>
+        </div>
+        <div id="mcp-servers-list">
+            <div style="color:#7f8c8d; font-size:12px; padding:4px 0;">로딩 중...</div>
         </div>
     </div>
 
-    <!-- 메인 컨텐츠 -->
-    <div class="main-content">
-    <div class="container">
-            <div class="current-session-title" id="current-session-title">새 채팅</div>
+    <!-- 채팅 세션 목록 -->
+    <div class="sessions-header">채팅 목록</div>
+    <div class="sessions-list" id="sessions-list"></div>
+</div>
 
-        <div class="tabs">
-            <div class="tab active" id="rag-tab" onclick="switchTab('rag')">RAG 채팅</div>
-            <div class="tab" id="simple-tab" onclick="switchTab('simple')">일반 채팅</div>
-        </div>
+<!-- ── 메인 컨텐츠 ────────────────────────────────────────────── -->
+<div class="main-content">
+<div class="container">
+    <div class="current-session-title" id="current-session-title">새 채팅</div>
 
-        <!-- 모델 선택 영역 -->
-        <div class="model-selection" id="model-selection" style="display: none;">
-            <label for="model-select">사용할 모델:</label>
-            <select id="model-select" class="model-select" onchange="onModelChange()">
-                <option value="">모델을 선택하세요...</option>
-            </select>
-            <span id="model-status" class="model-status"></span>
-        </div>
-
-        <div class="chat-container" id="chat-container">
-            <!-- 채팅 메시지들이 여기에 표시됩니다 -->
-        </div>
-
-        <div class="input-container">
-            <input type="text" id="message-input" class="message-input" placeholder="메시지를 입력하세요..." onkeypress="handleKeyPress(event)">
-            <button id="send-btn" class="send-btn" onclick="sendMessage()">전송</button>
-        </div>
-
-        <div id="status" class="status" style="display: none;"></div>
-        </div>
+    <!-- 모델 선택 -->
+    <div class="model-selection" id="model-selection" style="display: none;">
+        <label for="model-select">사용할 모델:</label>
+        <select id="model-select" class="model-select" onchange="onModelChange()">
+            <option value="">모델을 선택하세요...</option>
+        </select>
+        <span id="model-status" class="model-status"></span>
     </div>
 
-    <script>
-        let currentMode = 'rag';
-        let currentSessionId = null;
-        let availableModels = [];
-        let selectedModel = '';
+    <div class="chat-container" id="chat-container"></div>
 
-        /**
-         * Ollama 모델 목록을 로드합니다.
-         */
-        function loadOllamaModels() {
-            const modelSelection = document.getElementById('model-selection');
-            const modelSelect = document.getElementById('model-select');
-            const modelStatus = document.getElementById('model-status');
+    <div class="input-container">
+        <input type="text" id="message-input" class="message-input"
+               placeholder="메시지를 입력하세요..." onkeypress="handleKeyPress(event)">
+        <button id="send-btn" class="send-btn" onclick="sendMessage()">전송</button>
+    </div>
+</div>
+</div>
 
-            modelStatus.textContent = '모델 목록을 불러오는 중...';
-            modelStatus.className = 'model-status';
+<script>
+    let currentSessionId = null;
+    let availableModels   = [];
+    let selectedModel     = '';
 
-            fetch('/api/ollama/models')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success && data.available) {
-                        availableModels = data.models || [];
-                        const defaultModel = data.defaultModel || '';
+    // ── MCP 서버 상태 ────────────────────────────────────────────
 
-                        modelSelect.innerHTML = '<option value="">모델을 선택하세요...</option>';
+    function loadServerStatuses() {
+        fetch('/api/mcp/servers')
+            .then(r => r.json())
+            .then(servers => renderServerList(servers))
+            .catch(() => {
+                document.getElementById('mcp-servers-list').innerHTML =
+                    '<div style="color:#e74c3c;font-size:12px;">상태 조회 실패</div>';
+            });
+    }
 
-                        availableModels.forEach(model => {
-                            const option = document.createElement('option');
-                            option.value = model;
-                            option.textContent = model;
-                            modelSelect.appendChild(option);
-                        });
-
-                        if (defaultModel && availableModels.includes(defaultModel)) {
-                            modelSelect.value = defaultModel;
-                            selectedModel = defaultModel;
-                            console.log('기본 모델 선택됨:', defaultModel);
-                        }
-
-                        modelSelection.style.display = 'flex';
-
-                        if (availableModels.length > 0) {
-                            modelStatus.textContent = `사용 가능한 모델: ${availableModels.length}개`;
-                            modelStatus.className = 'model-status success';
-                        } else {
-                            modelStatus.textContent = '사용 가능한 모델이 없습니다';
-                            modelStatus.className = 'model-status warning';
-                        }
-                    } else {
-                        modelSelection.style.display = 'flex';
-                        modelSelect.innerHTML = '<option value="">모델 목록 로드 실패</option>';
-                        modelSelect.disabled = true;
-
-                        modelStatus.textContent = '모델 목록을 불러올 수 없습니다';
-                        modelStatus.className = 'model-status error';
-                    }
-                })
-                .catch(error => {
-                    console.error('모델 목록 로드 중 오류:', error);
-
-                    modelSelection.style.display = 'flex';
-                    modelSelect.innerHTML = '<option value="">모델 목록 로드 실패</option>';
-                    modelSelect.disabled = true;
-
-                    modelStatus.textContent = '모델 목록을 불러오는 중 오류가 발생했습니다';
-                    modelStatus.className = 'model-status error';
-                });
+    function renderServerList(servers) {
+        const list = document.getElementById('mcp-servers-list');
+        if (!servers || servers.length === 0) {
+            list.innerHTML = '<div style="color:#7f8c8d;font-size:12px;">등록된 서버 없음</div>';
+            return;
         }
+        list.innerHTML = servers.map(s => buildServerItem(s)).join('');
+    }
 
-        function getSelectedModel() {
-            const modelSelect = document.getElementById('model-select');
-            return modelSelect ? modelSelect.value : '';
-        }
+    function buildServerItem(s) {
+        const statusClass = s.status === 'CONNECTED'    ? 'connected'
+                          : s.status === 'FAILED'       ? 'failed'
+                          : 'disconnected';
 
-        function onModelChange() {
-            const newSelectedModel = getSelectedModel();
-            selectedModel = newSelectedModel;
-            console.log('선택된 모델:', selectedModel);
+        const toolsText = s.tools && s.tools.length > 0
+            ? s.tools.join(', ')
+            : '도구 없음';
 
-            const modelStatus = document.getElementById('model-status');
-            if (selectedModel && selectedModel.trim() !== '') {
-                modelStatus.textContent = `선택된 모델: ${selectedModel}`;
-                modelStatus.className = 'model-status success';
-            } else {
-                modelStatus.textContent = '기본 모델 사용';
-                modelStatus.className = 'model-status warning';
-            }
-        }
+        const actionBtn = s.status === 'CONNECTED'
+            ? `<button class="mcp-action-btn disconnect"
+                       onclick="disconnectServer('${s.name}')" id="btn-${s.name}">해제</button>`
+            : s.status === 'FAILED'
+            ? `<button class="mcp-action-btn retry"
+                       onclick="connectServer('${s.name}')" id="btn-${s.name}">재시도</button>`
+            : `<button class="mcp-action-btn connect"
+                       onclick="connectServer('${s.name}')" id="btn-${s.name}">연결</button>`;
 
-        function switchTab(mode) {
-            currentMode = mode;
-            document.getElementById('rag-tab').classList.remove('active');
-            document.getElementById('simple-tab').classList.remove('active');
-            document.getElementById(mode + '-tab').classList.add('active');
-        }
+        const errorHtml = s.lastError
+            ? `<div class="mcp-server-error" title="${escapeHtml(s.lastError)}">
+                   ${escapeHtml(s.lastError.substring(0, 60))}${s.lastError.length > 60 ? '…' : ''}
+               </div>`
+            : '';
 
-        function handleKeyPress(event) {
-            if (event.key === 'Enter') {
-                sendMessage();
-            }
-        }
+        const writeToggleHtml = s.status === 'CONNECTED'
+            ? `<label class="write-toggle ${s.writeAllowed ? 'allowed' : ''}" title="쓰기/삭제 도구 허용">
+                   <input type="checkbox" ${s.writeAllowed ? 'checked' : ''}
+                          onchange="setWriteAllowed('${s.name}', this.checked)">
+                   쓰기 허용
+               </label>`
+            : '';
 
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
+        return `
+        <div class="mcp-server-item" id="srv-${s.name}">
+            <div class="mcp-server-top">
+                <div class="mcp-server-name">
+                    <span class="status-dot ${statusClass}"></span>
+                    <span>${escapeHtml(s.name)}</span>
+                    <span class="server-type-badge">${escapeHtml(s.type)}</span>
+                </div>
+                ${actionBtn}
+            </div>
+            <div class="mcp-server-tools">${escapeHtml(toolsText)}</div>
+            ${writeToggleHtml}
+            ${errorHtml}
+        </div>`;
+    }
 
-        function addMessage(content, isUser) {
-            const chatContainer = document.getElementById('chat-container');
-            const messageDiv = document.createElement('div');
-            messageDiv.classList.add('message');
-            messageDiv.classList.add(isUser ? 'user-message' : 'ai-message');
+    function connectServer(name) {
+        const btn = document.getElementById('btn-' + name);
+        if (btn) { btn.disabled = true; btn.textContent = '연결 중...'; }
 
-            if (isUser) {
-                messageDiv.textContent = content;
-            } else {
-                messageDiv.innerHTML = DOMPurify.sanitize(marked.parse(content));
-            }
-
-            chatContainer.appendChild(messageDiv);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
-
-        function sendMessage() {
-            const input = document.getElementById('message-input');
-            const message = input.value.trim();
-            const sendBtn = document.getElementById('send-btn');
-
-            if (message === '') return;
-
-            sendBtn.disabled = true;
-
-            addMessage(message, true);
-            input.value = '';
-
-            const aiMessageDiv = document.createElement('div');
-            aiMessageDiv.classList.add('message', 'ai-message');
-            document.getElementById('chat-container').appendChild(aiMessageDiv);
-
-            aiMessageDiv.textContent = '...';
-
-            // 스트리밍 API 엔드포인트 결정
-            const endpoint = currentMode === 'rag' ? '/api/chat/rag/stream' : '/api/chat/simple/stream';
-
-            const selectedModel = getSelectedModel();
-
-            const params = new URLSearchParams();
-            params.append('message', message);
-            if (selectedModel && selectedModel.trim() !== '') {
-                params.append('model', selectedModel);
-            }
-
-            console.log('현재 세션 ID:', currentSessionId);
-            if (currentSessionId) {
-                params.append('sessionId', currentSessionId);
-            }
-
-            const eventSource = new EventSource(`${endpoint}?${params.toString()}`);
-            let fullResponse = '';
-
-            eventSource.onmessage = function(event) {
-                try {
-                    const data = JSON.parse(event.data);
-
-                    if (data.result && data.result.output && data.result.output.text) {
-                        const chunk = data.result.output.text;
-                        fullResponse += chunk;
-
-                        try {
-                            aiMessageDiv.innerHTML = DOMPurify.sanitize(marked.parse(fullResponse));
-                        } catch (markdownError) {
-                            console.error('마크다운 변환 오류:', markdownError);
-                            aiMessageDiv.innerText = fullResponse;
-                        }
-
-                        document.getElementById('chat-container').scrollTop = document.getElementById('chat-container').scrollHeight;
-                    }
-                } catch (e) {
-                    console.error('스트리밍 데이터 파싱 오류:', e);
-                }
-            };
-
-            eventSource.onerror = function(error) {
-                console.error('EventSource 상태:', eventSource.readyState);
-
-                eventSource.close();
-
-                if (!fullResponse) {
-                    aiMessageDiv.innerHTML = '<div style="color: #e74c3c; font-style: italic;">응답 생성 중 오류가 발생했습니다. 네트워크 연결을 확인하고 다시 시도해 주세요.</div>';
-                }
-
-                sendBtn.disabled = false;
-
-                if (fullResponse) {
-                    loadSessions();
-                }
-            };
-
-        }
-
-        /**
-         * 새 채팅 세션 생성
-         */
-        function createNewSession() {
-            console.log('새 세션 생성 시작...');
-
-            fetch('/api/chat/sessions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+        fetch(`/api/mcp/servers/${name}/connect`, { method: 'POST' })
+            .then(r => r.json())
+            .then(updated => {
+                const container = document.getElementById('srv-' + name);
+                if (container) container.outerHTML = buildServerItem(updated);
             })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
+            .catch(() => loadServerStatuses());
+    }
+
+    function setWriteAllowed(name, allowed) {
+        fetch(`/api/mcp/servers/${name}/write/${allowed}`, { method: 'POST' })
+            .then(r => r.json())
+            .then(updated => {
+                const container = document.getElementById('srv-' + name);
+                if (container) container.outerHTML = buildServerItem(updated);
             })
+            .catch(() => loadServerStatuses());
+    }
+
+    function disconnectServer(name) {
+        const btn = document.getElementById('btn-' + name);
+        if (btn) { btn.disabled = true; btn.textContent = '해제 중...'; }
+
+        fetch(`/api/mcp/servers/${name}/disconnect`, { method: 'POST' })
+            .then(() => loadServerStatuses())
+            .catch(() => loadServerStatuses());
+    }
+
+    // ── 모델 선택 ────────────────────────────────────────────────
+
+    function loadOllamaModels() {
+        const modelSelection = document.getElementById('model-selection');
+        const modelSelect    = document.getElementById('model-select');
+        const modelStatus    = document.getElementById('model-status');
+
+        modelStatus.textContent = '모델 목록을 불러오는 중...';
+        modelStatus.className   = 'model-status';
+
+        fetch('/api/ollama/models')
+            .then(r => r.json())
             .then(data => {
-                console.log('새 세션 생성 성공:', data);
-                currentSessionId = data.sessionId;
-                document.getElementById('current-session-title').textContent = data.title;
-                document.getElementById('chat-container').innerHTML = '';
+                availableModels = data.models || [];
+                const defaultModel = data.defaultModel || '';
 
+                modelSelect.innerHTML = '<option value="">모델을 선택하세요...</option>';
+                availableModels.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m;
+                    opt.textContent = m;
+                    modelSelect.appendChild(opt);
+                });
+
+                if (defaultModel && availableModels.includes(defaultModel)) {
+                    modelSelect.value = defaultModel;
+                    selectedModel     = defaultModel;
+                }
+                modelSelection.style.display = 'flex';
+
+                if (availableModels.length > 0) {
+                    modelStatus.textContent = `사용 가능한 모델: ${availableModels.length}개`;
+                    modelStatus.className   = 'model-status success';
+                } else {
+                    modelStatus.textContent = '사용 가능한 모델이 없습니다';
+                    modelStatus.className   = 'model-status warning';
+                }
+            })
+            .catch(() => {
+                modelSelection.style.display = 'flex';
+                modelSelect.innerHTML  = '<option value="">모델 목록 로드 실패</option>';
+                modelSelect.disabled   = true;
+                modelStatus.textContent = '모델 목록 로드 오류';
+                modelStatus.className   = 'model-status error';
+            });
+    }
+
+    function getSelectedModel() {
+        const s = document.getElementById('model-select');
+        return s ? s.value : '';
+    }
+
+    function onModelChange() {
+        selectedModel = getSelectedModel();
+        const modelStatus = document.getElementById('model-status');
+        if (selectedModel.trim()) {
+            modelStatus.textContent = `선택된 모델: ${selectedModel}`;
+            modelStatus.className   = 'model-status success';
+        } else {
+            modelStatus.textContent = '기본 모델 사용';
+            modelStatus.className   = 'model-status warning';
+        }
+    }
+
+    // ── 채팅 ─────────────────────────────────────────────────────
+
+    function handleKeyPress(event) {
+        if (event.key === 'Enter') sendMessage();
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function addMessage(content, isUser) {
+        const chatContainer = document.getElementById('chat-container');
+        const div = document.createElement('div');
+        div.classList.add('message', isUser ? 'user-message' : 'ai-message');
+        div.innerHTML = isUser
+            ? escapeHtml(content)
+            : DOMPurify.sanitize(marked.parse(content));
+        chatContainer.appendChild(div);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    function sendMessage() {
+        const input   = document.getElementById('message-input');
+        const message = input.value.trim();
+        const sendBtn = document.getElementById('send-btn');
+        if (!message) return;
+
+        sendBtn.disabled = true;
+        addMessage(message, true);
+        input.value = '';
+
+        const aiDiv = document.createElement('div');
+        aiDiv.classList.add('message', 'ai-message');
+        aiDiv.innerHTML = '<span class="loading"></span>';
+        document.getElementById('chat-container').appendChild(aiDiv);
+
+        const params = new URLSearchParams();
+        params.append('message', message);
+        if (currentSessionId) params.append('sessionId', currentSessionId);
+        const model = getSelectedModel();
+        if (model) params.append('model', model);
+
+        const eventSource = new EventSource(`/api/chat/simple/stream?${params.toString()}`);
+        let fullResponse  = '';
+
+        eventSource.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.result?.output?.text) {
+                    const chunk = data.result.output.text;
+                    fullResponse += chunk;
+                    try {
+                        const rendered = DOMPurify.sanitize(marked.parse(fullResponse));
+                        if (chunk.includes('MCP 서버 미연결') && fullResponse.length === chunk.length) {
+                            // 경고 문구만 도착한 상태 — 스피너 유지 + 서버 상태 패널 즉시 갱신
+                            aiDiv.innerHTML = rendered + ' <span class="loading"></span>';
+                            loadServerStatuses();
+                        } else {
+                            aiDiv.innerHTML = rendered;
+                        }
+                    } catch (e) {
+                        aiDiv.innerText = fullResponse;
+                    }
+                    document.getElementById('chat-container').scrollTop =
+                        document.getElementById('chat-container').scrollHeight;
+                }
+            } catch (e) { /* ignore parse errors */ }
+        };
+
+        eventSource.onerror = function() {
+            eventSource.close();
+            if (!fullResponse) {
+                aiDiv.innerHTML =
+                    '<div style="color:#e74c3c;font-style:italic;">응답 생성 중 오류가 발생했습니다.</div>';
+            }
+            sendBtn.disabled = false;
+            if (fullResponse) loadSessions();
+        };
+    }
+
+    // ── 세션 관리 ─────────────────────────────────────────────────
+
+    function createNewSession() {
+        fetch('/api/chat/sessions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(data => {
+            currentSessionId = data.sessionId;
+            document.getElementById('current-session-title').textContent = data.title;
+            document.getElementById('chat-container').innerHTML = '';
+            loadSessions();
+        })
+        .catch(e => alert('새 세션 생성 실패: ' + e.message));
+    }
+
+    function loadSessions() {
+        return fetch('/api/chat/sessions')
+            .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+            .then(sessions => {
+                const list = document.getElementById('sessions-list');
+                list.innerHTML = '';
+
+                if (sessions.length === 0) {
+                    list.innerHTML = '<div class="session-item" style="text-align:center;color:#666;">세션이 없습니다</div>';
+                    return sessions;
+                }
+
+                sessions.forEach(s => {
+                    const item = document.createElement('div');
+                    item.className = 'session-item' + (s.sessionId === currentSessionId ? ' active' : '');
+                    item.innerHTML = `
+                        <div class="session-content" onclick="loadSession('${s.sessionId}')">
+                            <div class="session-title">${escapeHtml(s.title)}</div>
+                            <div class="session-time">${formatDate(s.lastMessageAt)}</div>
+                        </div>
+                        <button class="delete-session-btn"
+                                onclick="deleteSession('${s.sessionId}', event)" title="세션 삭제">&times;</button>`;
+                    list.appendChild(item);
+                });
+
+                // 현재 세션 제목을 목록 데이터로 바로 갱신 (추가 fetch 불필요)
+                const current = sessions.find(s => s.sessionId === currentSessionId);
+                if (current) {
+                    document.getElementById('current-session-title').textContent = current.title;
+                }
+
+                return sessions;
+            });
+    }
+
+    function loadSession(sessionId) {
+        currentSessionId = sessionId;
+        fetch(`/api/chat/sessions/${sessionId}`)
+            .then(r => r.json())
+            .then(s => {
+                document.getElementById('current-session-title').textContent = s.title;
+                document.getElementById('chat-container').innerHTML = '';
+                loadSessionMessages(sessionId);
+            });
+        loadSessions();
+    }
+
+    function loadSessionMessages(sessionId) {
+        fetch(`/api/chat/sessions/${sessionId}/messages`)
+            .then(r => r.json())
+            .then(messages => {
+                const container = document.getElementById('chat-container');
+                container.innerHTML = '';
+                messages.forEach(m => addMessage(m.content, m.messageType === 'USER'));
+            });
+    }
+
+    function deleteSession(sessionId, event) {
+        event.stopPropagation();
+        if (!confirm('이 세션을 삭제하시겠습니까?')) return;
+        fetch(`/api/chat/sessions/${sessionId}`, { method: 'DELETE' })
+            .then(r => {
+                if (!r.ok) throw new Error('삭제 실패');
+                if (currentSessionId === sessionId) {
+                    document.getElementById('chat-container').innerHTML = '';
+                    document.getElementById('current-session-title').textContent = '새 채팅';
+                    currentSessionId = null;
+                }
                 loadSessions();
             })
-            .catch(error => {
-                console.error('새 세션 생성 중 오류:', error);
-                alert('새 세션 생성에 실패했습니다: ' + error.message);
-            });
-        }
+            .catch(e => alert('세션 삭제 실패: ' + e.message));
+    }
 
-        /**
-         * 세션 목록 로드
-         */
-        function loadSessions() {
-            console.log('세션 목록 로드 시작...');
+    function formatDate(dateString) {
+        const date     = new Date(dateString);
+        const now      = new Date();
+        const diffMins = Math.floor((now - date) / 60000);
+        const diffHrs  = Math.floor(diffMins / 60);
+        const diffDays = Math.floor(diffHrs / 24);
+        if (diffMins < 1)  return '방금 전';
+        if (diffMins < 60) return `${diffMins}분 전`;
+        if (diffHrs  < 24) return `${diffHrs}시간 전`;
+        if (diffDays < 7)  return `${diffDays}일 전`;
+        return date.toLocaleDateString('ko-KR');
+    }
 
-            return fetch('/api/chat/sessions')
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(sessions => {
-                    console.log('세션 목록 로드 성공:', sessions);
-                    const sessionsList = document.getElementById('sessions-list');
-                    sessionsList.innerHTML = '';
+    // ── 초기화 ───────────────────────────────────────────────────
 
-                    if (sessions.length === 0) {
-                        sessionsList.innerHTML = '<div class="session-item" style="text-align: center; color: #666; padding: 10px;">세션이 없습니다</div>';
-                        return sessions;
-                    }
+    document.addEventListener('DOMContentLoaded', function () {
+        loadOllamaModels();
+        loadServerStatuses();
 
-                    sessions.forEach(session => {
-                        const sessionItem = document.createElement('div');
-                        sessionItem.className = 'session-item';
-                        if (session.sessionId === currentSessionId) {
-                            sessionItem.className += ' active';
-                        }
-                        sessionItem.innerHTML = `
-                            <div class="session-content" onclick="loadSession('${session.sessionId}')">
-                                <div class="session-title">${escapeHtml(session.title)}</div>
-                                <div class="session-time">${formatDate(session.lastMessageAt)}</div>
-                            </div>
-                            <button class="delete-session-btn" onclick="deleteSession('${session.sessionId}', event)" title="세션 삭제">
-                                &times;
-                            </button>
-                        `;
-
-                        sessionsList.appendChild(sessionItem);
-                    });
-
-                    return sessions;
-                })
-                .catch(error => {
-                    console.error('세션 목록 로드 중 오류:', error);
-                    throw error;
-                });
-        }
-
-        /**
-         * 특정 세션 로드
-         */
-        function loadSession(sessionId) {
-            currentSessionId = sessionId;
-
-            fetch(`/api/chat/sessions/${sessionId}`)
-                .then(response => response.json())
-                .then(session => {
-                    document.getElementById('current-session-title').textContent = session.title;
-                    document.getElementById('chat-container').innerHTML = '';
-
-                    loadSessionMessages(sessionId);
-                })
-                .catch(error => {
-                    console.error('세션 로드 중 오류:', error);
-                });
-
-            // 세션 목록에서 활성 세션 표시
-            loadSessions();
-
-            console.log('세션 로드됨:', sessionId);
-        }
-
-        /**
-         * 세션 메시지 로드
-         */
-        function loadSessionMessages(sessionId) {
-            fetch(`/api/chat/sessions/${sessionId}/messages`)
-                .then(response => response.json())
-                .then(messages => {
-                    const chatContainer = document.getElementById('chat-container');
-                    chatContainer.innerHTML = '';
-
-                    messages.forEach(message => {
-                        const isUser = message.messageType === 'USER';
-                        addMessage(message.content, isUser);
-                    });
-                })
-                .catch(error => {
-                    console.error('세션 메시지 로드 중 오류:', error);
-                });
-        }
-
-        /**
-         * 세션 삭제
-         */
-        function deleteSession(sessionId, event) {
-            event.stopPropagation();
-
-            if (!confirm('이 세션을 삭제하시겠습니까?')) {
-                return;
-            }
-
-            fetch(`/api/chat/sessions/${sessionId}`, {
-                method: 'DELETE'
-            })
-            .then(response => {
-                if (response.ok) {
-                    if (currentSessionId === sessionId) {
-                        loadSessions();
-                        document.getElementById('chat-container').innerHTML = '';
-                        document.getElementById('current-session-title').textContent = '새 채팅';
-                        currentSessionId = null;
-                    } else {
-                        loadSessions();
-                    }
-
-                    console.log('세션 삭제 완료:', sessionId);
-                } else {
-                    throw new Error('세션 삭제 실패');
-                }
-            })
-            .catch(error => {
-                console.error('세션 삭제 실패:', error);
-                alert('세션 삭제에 실패했습니다.');
-            });
-        }
-
-        /**
-         * 날짜 포맷팅
-         */
-        function formatDate(dateString) {
-            const date = new Date(dateString);
-            const now = new Date();
-            const diffMs = now - date;
-            const diffMins = Math.floor(diffMs / 60000);
-            const diffHours = Math.floor(diffMs / 3600000);
-            const diffDays = Math.floor(diffMs / 86400000);
-
-            if (diffMins < 1) return '방금 전';
-            if (diffMins < 60) return `${diffMins}분 전`;
-            if (diffHours < 24) return `${diffHours}시간 전`;
-            if (diffDays < 7) return `${diffDays}일 전`;
-
-            return date.toLocaleDateString('ko-KR');
-        }
-
-        /**
-         * 세션 관리 시스템을 초기화합니다.
-         */
-        function initializeSessionManagement() {
-            console.log('세션 관리 초기화 시작');
-
-            loadSessions().then(sessions => {
-                console.log('세션 목록 로드 완료');
-
+        loadSessions()
+            .then(sessions => {
                 if (!sessions || sessions.length === 0) {
-                    console.log('세션이 없음, 새 세션 생성');
                     createNewSession();
                 } else {
-                    // 기존 세션이 있으면 가장 최근 세션 자동 선택
                     loadSession(sessions[0].sessionId);
-                    console.log('가장 최근 세션 자동 선택:', sessions[0].sessionId);
                 }
-            }).catch(error => {
-                console.error('세션 초기화 실패:', error);
-                createNewSession();
-            });
-        }
-
-        // 페이지 로드 시 초기화
-        document.addEventListener('DOMContentLoaded', function() {
-            loadOllamaModels();
-            initializeSessionManagement();
-        });
-    </script>
+            })
+            .catch(() => createNewSession());
+    });
+</script>
 </body>
 </html>
