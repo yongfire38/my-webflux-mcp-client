@@ -51,13 +51,13 @@ public class McpServerRegistry {
         final ConnectionParameters httpParams;
         final StdioServerDef stdioParams;
 
-        ServerConfig(String name, ConnectionParameters httpParams) {
+        ServerConfig(ConnectionParameters httpParams) {
             this.type = "http";
             this.httpParams = httpParams;
             this.stdioParams = null;
         }
 
-        ServerConfig(String name, StdioServerDef stdioParams) {
+        ServerConfig(StdioServerDef stdioParams) {
             this.type = "stdio";
             this.httpParams = null;
             this.stdioParams = stdioParams;
@@ -106,14 +106,14 @@ public class McpServerRegistry {
 
         if (httpProperties != null && httpProperties.getConnections() != null) {
             httpProperties.getConnections().forEach((name, params) -> {
-                configs.put(name, new ServerConfig(name, params));
+                configs.put(name, new ServerConfig(params));
                 runtimes.put(name, new ServerRuntime());
             });
         }
 
         if (stdioProperties != null && stdioProperties.getServers() != null) {
             stdioProperties.getServers().forEach((name, def) -> {
-                configs.put(name, new ServerConfig(name, def));
+                configs.put(name, new ServerConfig(def));
                 runtimes.put(name, new ServerRuntime());
             });
         }
