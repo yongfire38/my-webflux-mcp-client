@@ -67,7 +67,6 @@ public class McpServerRegistry {
     private static class ServerRuntime {
         volatile Status status = Status.DISCONNECTED;
         McpAsyncClient client;
-        Process process;
         List<McpSchema.Tool> tools = Collections.emptyList();
         boolean writeAllowed = false;
         String lastError;
@@ -409,10 +408,6 @@ public class McpServerRegistry {
         if (runtime.client != null) {
             try { runtime.client.close(); } catch (Exception ignored) {}
             runtime.client = null;
-        }
-        if (runtime.process != null && runtime.process.isAlive()) {
-            runtime.process.destroyForcibly();
-            runtime.process = null;
         }
     }
 
