@@ -151,7 +151,7 @@
         .mcp-action-btn.disconnect { background-color: #7f8c8d; color: #fff; }
         .mcp-action-btn.retry      { background-color: #e67e22; color: #fff; }
 
-        .write-toggle {
+        .restrict-toggle {
             display: flex;
             align-items: center;
             gap: 4px;
@@ -161,8 +161,8 @@
             margin-top: 5px;
             user-select: none;
         }
-        .write-toggle input[type="checkbox"] { cursor: pointer; accent-color: #e67e22; }
-        .write-toggle.allowed { color: #e67e22; font-weight: 600; }
+        .restrict-toggle input[type="checkbox"] { cursor: pointer; accent-color: #e67e22; }
+        .restrict-toggle.allowed { color: #e67e22; font-weight: 600; }
 
         .mcp-server-tools {
             color: #95a5a6;
@@ -442,10 +442,10 @@
             : '';
 
         const writeToggleHtml = s.status === 'CONNECTED'
-            ? `<label class="write-toggle ${s.writeAllowed ? 'allowed' : ''}" title="쓰기/삭제 도구 허용">
-                   <input type="checkbox" ${s.writeAllowed ? 'checked' : ''}
-                          onchange="setWriteAllowed('${s.name}', this.checked)">
-                   쓰기 허용
+            ? `<label class="restrict-toggle ${s.restrictedAllowed ? 'allowed' : ''}" title="위험·제한 작업 도구 허용 (파괴적·외부영향 도구 포함)">
+                   <input type="checkbox" ${s.restrictedAllowed ? 'checked' : ''}
+                          onchange="setRestrictedAllowed('${s.name}', this.checked)">
+                   위험 작업 허용
                </label>`
             : '';
 
@@ -478,8 +478,8 @@
             .catch(() => loadServerStatuses());
     }
 
-    function setWriteAllowed(name, allowed) {
-        fetch(`/api/mcp/servers/${name}/write/${allowed}`, { method: 'POST' })
+    function setRestrictedAllowed(name, allowed) {
+        fetch(`/api/mcp/servers/${name}/restricted/${allowed}`, { method: 'POST' })
             .then(r => r.json())
             .then(updated => {
                 const container = document.getElementById('srv-' + name);

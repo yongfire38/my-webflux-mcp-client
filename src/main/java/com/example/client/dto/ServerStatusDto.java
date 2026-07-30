@@ -8,5 +8,5 @@ public record ServerStatusDto(
         String status,
         String lastError,
         List<String> tools,
-        boolean writeAllowed
+        boolean restrictedAllowed
 ) {}

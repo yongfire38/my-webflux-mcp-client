@@ -44,7 +44,7 @@ public class McpServerController {
                 .subscribeOn(Schedulers.boundedElastic())
                 .onErrorResume(IllegalArgumentException.class,
                         e -> Mono.just(new ServerStatusDto(name, "unknown", "FAILED",
-                                e.getMessage(), List.of(), false)));
+                                e.getMessage(), List.of(), false)));  // restrictedAllowed=false
     }
 
     /** 서버 연결 해제. */
@@ -56,12 +56,12 @@ public class McpServerController {
                 .then();
     }
 
-    /** 쓰기 허용 토글. */
-    @PostMapping("/{name}/write/{allowed}")
-    public Mono<ServerStatusDto> setWriteAllowed(@PathVariable String name,
-                                                  @PathVariable boolean allowed) {
-        log.info("[API] MCP 서버 쓰기 권한 변경: {} → {}", name, allowed);
-        return Mono.fromCallable(() -> mcpServerRegistry.setWriteAllowed(name, allowed))
+    /** 위험 작업 허용 토글. */
+    @PostMapping("/{name}/restricted/{allowed}")
+    public Mono<ServerStatusDto> setRestrictedAllowed(@PathVariable String name,
+                                                       @PathVariable boolean allowed) {
+        log.info("[API] MCP 서버 위험 작업 권한 변경: {} → {}", name, allowed);
+        return Mono.fromCallable(() -> mcpServerRegistry.setRestrictedAllowed(name, allowed))
                 .subscribeOn(Schedulers.boundedElastic());
     }
 }

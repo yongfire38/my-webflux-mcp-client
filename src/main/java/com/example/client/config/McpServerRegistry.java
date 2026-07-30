@@ -31,7 +31,7 @@ import org.springframework.web.reactive.function.client.WebClient;
  * HTTP(Streamable) 및 stdio MCP 서버를 통합 관리하는 레지스트리.
  *
  * McpClientHolder를 대체하며, 서버별 상태(DISCONNECTED/CONNECTED/FAILED)를 독립적으로 추적한다.
- * connect/disconnect/writeAllowed는 REST API(/api/mcp/servers/**)를 통해 UI에서 제어한다.
+ * connect/disconnect/restrictedAllowed는 REST API(/api/mcp/servers/**)를 통해 UI에서 제어한다.
  *
  * 참고: Spring AI McpClientAutoConfiguration을 사용하면 stdio 포함 모든 전송 방식이
  * application.yml 설정만으로 자동 구성된다. 이 클래스는 동적 재연결·per-server 상태 관리를
@@ -68,7 +68,7 @@ public class McpServerRegistry {
         volatile Status status = Status.DISCONNECTED;
         McpAsyncClient client;
         List<McpSchema.Tool> tools = Collections.emptyList();
-        boolean writeAllowed = false;
+        boolean restrictedAllowed = false;
         String lastError;
     }
 
@@ -182,7 +182,7 @@ public class McpServerRegistry {
         runtime.status = Status.DISCONNECTED;
         runtime.lastError = null;
         runtime.tools = Collections.emptyList();
-        runtime.writeAllowed = false;
+        runtime.restrictedAllowed = false;
         log.info("[MCP] '{}' 연결 해제", name);
     }
 
@@ -228,19 +228,19 @@ public class McpServerRegistry {
                     .build()
                     .getToolCallbacks();
             for (ToolCallback cb : cbs) {
-                all.add(wrapWithWriteGuard(cb, rt));
+                all.add(wrapWithSafetyGuard(cb, rt));
             }
         }
         return all.toArray(new ToolCallback[0]);
     }
 
-    /** 쓰기 허용 여부 토글. */
-    public synchronized ServerStatusDto setWriteAllowed(String name, boolean allowed) {
+    /** 제한 작업 허용 여부 토글. */
+    public synchronized ServerStatusDto setRestrictedAllowed(String name, boolean allowed) {
         ServerConfig config = configs.get(name);
         if (config == null) throw new IllegalArgumentException("알 수 없는 서버: " + name);
         ServerRuntime runtime = runtimes.get(name);
-        runtime.writeAllowed = allowed;
-        log.info("[MCP] '{}' 쓰기 권한 {}", name, allowed ? "허용" : "차단");
+        runtime.restrictedAllowed = allowed;
+        log.info("[MCP] '{}' 위험 작업 {}", name, allowed ? "허용" : "차단");
         return toDto(name, config, runtime);
     }
 
@@ -365,29 +365,40 @@ public class McpServerRegistry {
     }
 
     /**
-     * 쓰기/파괴적 도구인지 판단.
-     * 1순위: ToolAnnotations (readOnlyHint, destructiveHint)
-     * 2순위: 도구 이름 휴리스틱 (annotations 없는 서버 대비 fallback)
+     * 제한 작업(위험·파괴적·외부영향) 도구인지 판단.
+     * 1순위: ToolAnnotations — readOnlyHint=true(통과), destructiveHint=true 또는 openWorldHint=true(차단)
+     * 2순위: 도구 이름 휴리스틱 (annotations 미지원 서버 fallback)
      */
-    private boolean isWriteOperation(McpSchema.Tool tool) {
+    private boolean isRestrictedOperation(McpSchema.Tool tool) {
         if (tool == null) return false;
         McpSchema.ToolAnnotations ann = tool.annotations();
         if (ann != null) {
             if (Boolean.TRUE.equals(ann.readOnlyHint())) return false;
             if (Boolean.TRUE.equals(ann.destructiveHint())) return true;
+            if (Boolean.TRUE.equals(ann.openWorldHint())) return true;
         }
         String n = tool.name().toLowerCase();
-        return n.contains("write") || n.contains("create") || n.contains("delete")
-            || n.contains("update") || n.contains("edit")  || n.contains("move")
-            || n.contains("rename") || n.contains("append");
+        return // CRUD / 파일시스템
+               n.contains("write")  || n.contains("create") || n.contains("delete")
+            || n.contains("update") || n.contains("edit")   || n.contains("move")
+            || n.contains("rename") || n.contains("append") || n.contains("remove")
+            || n.contains("overwrite")
+            // 코드·셸 실행
+            || n.contains("execute") || n.contains("exec") || n.contains("eval")
+            || n.contains("shell")   || n.contains("bash") || n.contains("run")
+            // 외부 통신·배포
+            || n.contains("send")   || n.contains("deploy") || n.contains("ingest")
+            // DB 파괴적 작업
+            || n.contains("insert") || n.contains("drop")
+            || n.contains("truncate") || n.contains("purge");
     }
 
-    /** 쓰기 도구이면 writeAllowed 플래그를 확인하는 가드로 래핑. */
-    private ToolCallback wrapWithWriteGuard(ToolCallback cb, ServerRuntime runtime) {
+    /** 제한 작업 도구이면 restrictedAllowed 플래그를 확인하는 가드로 래핑. */
+    private ToolCallback wrapWithSafetyGuard(ToolCallback cb, ServerRuntime runtime) {
         McpSchema.Tool mcpTool = runtime.tools.stream()
                 .filter(t -> t.name().equals(cb.getToolDefinition().name()))
                 .findFirst().orElse(null);
-        if (!isWriteOperation(mcpTool)) return cb;
+        if (!isRestrictedOperation(mcpTool)) return cb;
 
         return new ToolCallback() {
             @Override
@@ -396,8 +407,8 @@ public class McpServerRegistry {
             }
             @Override
             public String call(String toolInput) {
-                if (!runtime.writeAllowed) {
-                    return "쓰기 작업이 차단되었습니다. 사이드바의 [쓰기 허용] 토글을 활성화하세요.";
+                if (!runtime.restrictedAllowed) {
+                    return "제한 작업이 차단되었습니다. 사이드바의 [위험 작업 허용] 토글을 활성화하세요.";
                 }
                 return cb.call(toolInput);
             }
@@ -415,6 +426,6 @@ public class McpServerRegistry {
         List<String> toolNames = runtime.tools.stream().map(McpSchema.Tool::name).toList();
         return new ServerStatusDto(
                 name, config.type, runtime.status.name(),
-                runtime.lastError, toolNames, runtime.writeAllowed);
+                runtime.lastError, toolNames, runtime.restrictedAllowed);
     }
 }
