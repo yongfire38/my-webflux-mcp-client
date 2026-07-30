@@ -78,8 +78,9 @@ mvn spring-boot:run
 
 ### 채팅 UI (`/` → chat.html)
 
-- **RAG 탭**: `searchDocuments` 도구를 강제 선호출 → 검색 결과를 system 메시지로 주입 → Ollama 스트리밍 답변. 문서 기반 정확 답변에 적합.
-- **일반 채팅 탭**: 전체 MCP 도구 목록을 LLM에 제공하고 호출 여부는 LLM이 자율 판단. 자유 대화에 적합.
+- **단일 탭**: 전체 MCP 도구 목록을 LLM에 제공하고 호출 여부는 LLM이 자율 판단. RAG가 필요한 질문에서 LLM이 `searchDocuments`를 자율 호출.
+- **MCP 미연결 경고**: 서버가 등록돼 있으나 연결된 도구가 없으면 `"*MCP 서버 미연결 — RAG 없이 응답합니다*"` 경고를 답변 앞에 선행 삽입.
+- *(구 RAG 강제 선호출 탭: `@Deprecated` 처리됨 — `/api/chat/rag/stream` 엔드포인트 잔존하나 UI에서 제거됨)*
 - **세션 관리**: 사이드바에서 세션 목록 확인·선택·삭제. 첫 메시지 30자로 제목 자동 생성. 답변 완료 후 즉시 제목 갱신.
 - **채팅 이력 복원**: 세션 선택 시 JDBC ChatMemory에서 이전 대화 이력을 불러옵니다.
 - **Ollama 모델 선택**: 드롭다운으로 실시간 모델 전환.
@@ -139,13 +140,13 @@ app:
 
 > Linux/macOS: `command: "npx"`, `args: ["-y", "@modelcontextprotocol/server-filesystem", "/path"]`
 
-#### 쓰기 권한 제어
+#### 위험 작업 제어
 
-각 서버의 도구 중 쓰기 작업(파일 생성·삭제·수정)으로 판별된 도구는 `writeAllowed = false`(기본값)인 경우 호출이 차단됩니다.
+각 서버의 도구 중 위험 작업으로 판별된 도구는 `restrictedAllowed = false`(기본값)인 경우 호출이 차단됩니다.
 
-- **판별 우선순위**: MCP 1.1 `ToolAnnotations` (`readOnlyHint` / `destructiveHint`) → 도구 이름 휴리스틱 (`write`, `create`, `delete`, `update` 등)
-- **사이드바 토글**: CONNECTED 상태 서버에서 "쓰기 허용" 체크박스로 on/off 전환
-- **차단 시 응답**: `"[쓰기 차단] 사이드바에서 쓰기 권한을 허용한 후 다시 시도하세요."` — LLM에게 반환되어 사용자에게 안내됩니다
+- **판별 순서**: `readOnlyHint: true` → 허용 / `destructiveHint: true` 또는 `openWorldHint: true` → 차단 / 이름 휴리스틱 (write/create/delete/execute/send/deploy/drop 등)
+- **사이드바 토글**: CONNECTED 상태 서버에서 "위험 작업 허용" 체크박스로 on/off 전환
+- **차단 시 응답**: `"제한 작업이 차단되었습니다. 사이드바의 [위험 작업 허용] 토글을 활성화하세요."` — LLM에게 반환되어 사용자에게 안내됩니다
 
 ### MCP 이벤트 핸들러 (`McpClientEventHandler`)
 
@@ -165,8 +166,8 @@ app:
 
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
-| `GET` | `/api/chat/rag/stream` | RAG 채팅 SSE 스트리밍. 파라미터: `message`, `sessionId`, `model` |
-| `GET` | `/api/chat/simple/stream` | 일반 채팅 SSE 스트리밍. 파라미터: `message`, `sessionId`, `model` |
+| `GET` | `/api/chat/simple/stream` | 채팅 SSE 스트리밍. 파라미터: `message`, `sessionId`, `model` |
+| `GET` | ~~`/api/chat/rag/stream`~~ | **@Deprecated** — UI에서 제거됨. `/simple/stream` 사용. |
 
 ### 세션 관리
 
@@ -194,7 +195,7 @@ app:
 | `GET` | `/api/mcp/servers/{name}` | 단일 서버 상태 조회 |
 | `POST` | `/api/mcp/servers/{name}/connect` | 서버 연결 |
 | `POST` | `/api/mcp/servers/{name}/disconnect` | 서버 연결 해제 |
-| `POST` | `/api/mcp/servers/{name}/write/{allowed}` | 쓰기 권한 on/off |
+| `POST` | `/api/mcp/servers/{name}/restricted/{allowed}` | 위험 작업 허용 on/off |
 
 ---
 
@@ -209,7 +210,7 @@ src/main/java/com/example/client/
 │   ├── McpServerRegistry.java         # MCP 서버 per-server 상태 관리 (DISCONNECTED/CONNECTED/FAILED)
 │   │                                  #   · listTools() ping으로 서버 사망 감지
 │   │                                  #   · SSE(HTTP) + stdio 두 가지 연결 유형 지원
-│   │                                  #   · ToolAnnotations 기반 쓰기 권한 제어 + wrapWithWriteGuard
+│   │                                  #   · ToolAnnotations 기반 위험 작업 제어 + wrapWithSafetyGuard
 │   ├── McpOptionalConfig.java         # McpServerRegistry 빈 생성 + 기동 시 초기 연결 시도
 │   ├── OllamaConfig.java              # Ollama ChatModel 설정
 │   └── SwaggerConfig.java
@@ -218,13 +219,13 @@ src/main/java/com/example/client/
 │   ├── ChatPageController.java        # / → chat.html
 │   ├── ChatSessionController.java     # /api/sessions CRUD
 │   ├── DocumentIngestController.java  # /api/documents/ingest → MCP ingestDocument 호출
-│   ├── McpServerController.java       # /api/mcp/servers/** (상태 조회·연결·쓰기 권한)
+│   ├── McpServerController.java       # /api/mcp/servers/** (상태 조회·연결·위험 작업 허용)
 │   ├── OllamaModelController.java     # /api/ollama/models
 │   └── IngestPageController.java      # /ingest → ingest.html
 ├── dto/
 │   ├── ChatMessageDto.java
 │   ├── ChatSessionDto.java
-│   └── ServerStatusDto.java           # 서버 상태 DTO (name, status, tools, writeAllowed)
+│   └── ServerStatusDto.java           # 서버 상태 DTO (name, type, status, lastError, tools, restrictedAllowed)
 ├── entity/
 │   └── ChatSessionEntity.java         # JPA (spring_ai_chat_sessions 테이블)
 ├── handler/
@@ -236,8 +237,8 @@ src/main/java/com/example/client/
     ├── ChatSessionService.java
     ├── OllamaModelService.java
     └── impl/
-        ├── ChatServiceImpl.java        # RAG(강제 선호출) / Simple(LLM 자율) 구현
-        │                               #   · callbacks 없을 때 Flux.concat으로 RAG 경고 선행 삽입
+        ├── ChatServiceImpl.java        # Simple(LLM 자율) 구현 — RAG 강제 선호출은 @Deprecated
+        │                               #   · MCP 미연결 시 Flux.concat으로 경고 메시지 선행 삽입
         ├── ChatSessionServiceImpl.java
         └── OllamaModelServiceImpl.java
 
@@ -247,7 +248,7 @@ src/main/resources/
 │   ├── marked.min.js                  # 마크다운 렌더링
 │   └── purify.min.js                  # XSS 방어 (DOMPurify)
 └── templates/
-    ├── chat.html                      # 채팅 UI (RAG·일반 탭, 서버 상태 사이드바, SSE 스트리밍)
+    ├── chat.html                      # 채팅 UI (단일 탭, 서버 상태 사이드바, SSE 스트리밍)
     └── ingest.html                    # 문서 적재 UI (구 upload.html)
 ```
 
@@ -300,5 +301,5 @@ app:
 | Ollama 모델 목록 비어 있음 | Ollama 미기동 | `ollama serve` 실행 후 재시도 |
 | 세션 선택 후 이력 미표시 | chatdb 연결 문제 | DB 상태 및 `spring_ai_chat_memory` 테이블 확인 |
 | stdio 서버 연결 실패 (Windows) | `npx`는 `.cmd` 스크립트 — 직접 실행 불가 | `command: "cmd"`, `args: ["/c", "npx", ...]`로 설정 변경 |
-| 쓰기 도구가 차단됨 | `writeAllowed = false` (기본값) | 사이드바의 해당 서버 "쓰기 허용" 체크박스 활성화 |
+| 위험 작업 도구가 차단됨 | `restrictedAllowed = false` (기본값) | 사이드바의 해당 서버 "위험 작업 허용" 체크박스 활성화 |
 | 사이드바가 여전히 CONNECTED로 표시됨 | 채팅을 보내지 않으면 ping이 발생하지 않음 | 채팅을 한 번 보내거나 사이드바 새로고침(↺) 버튼 클릭 |
