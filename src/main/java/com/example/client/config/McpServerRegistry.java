@@ -263,7 +263,7 @@ public class McpServerRegistry {
 
     /** 연결된 서버가 하나 이상인지 확인. */
     public synchronized boolean hasAnyConnected() {
-        return runtimes.values().stream().anyMatch(r -> r.status == Status.CONNECTED);
+        return runtimes.values().stream().anyMatch(runtime -> runtime.status == Status.CONNECTED);
     }
 
     /** yml에 등록된 서버가 하나 이상인지 확인 (연결 여부 무관). */
@@ -343,11 +343,11 @@ public class McpServerRegistry {
             spec = spec
                     .sampling(req -> handlerRegistry.handleSampling(name, req))
                     .elicitation(req -> handlerRegistry.handleElicitation(name, req))
-                    .loggingConsumer(n -> handlerRegistry.handleLogging(name, n))
-                    .progressConsumer(p -> handlerRegistry.handleProgress(name, p))
-                    .toolsChangeConsumer(t -> handlerRegistry.handleToolListChanged(name, t))
-                    .resourcesChangeConsumer(r -> handlerRegistry.handleResourceListChanged(name, r))
-                    .promptsChangeConsumer(p -> handlerRegistry.handlePromptListChanged(name, p));
+                    .loggingConsumer(notification -> handlerRegistry.handleLogging(name, notification))
+                    .progressConsumer(progress -> handlerRegistry.handleProgress(name, progress))
+                    .toolsChangeConsumer(tools -> handlerRegistry.handleToolListChanged(name, tools))
+                    .resourcesChangeConsumer(resources -> handlerRegistry.handleResourceListChanged(name, resources))
+                    .promptsChangeConsumer(prompts -> handlerRegistry.handlePromptListChanged(name, prompts));
         }
 
         return spec.build();
@@ -377,20 +377,20 @@ public class McpServerRegistry {
             if (Boolean.TRUE.equals(ann.destructiveHint())) return true;
             if (Boolean.TRUE.equals(ann.openWorldHint())) return true;
         }
-        String n = tool.name().toLowerCase();
+        String toolName = tool.name().toLowerCase();
         return // CRUD / 파일시스템
-               n.contains("write")  || n.contains("create") || n.contains("delete")
-            || n.contains("update") || n.contains("edit")   || n.contains("move")
-            || n.contains("rename") || n.contains("append") || n.contains("remove")
-            || n.contains("overwrite")
+               toolName.contains("write")  || toolName.contains("create") || toolName.contains("delete")
+            || toolName.contains("update") || toolName.contains("edit")   || toolName.contains("move")
+            || toolName.contains("rename") || toolName.contains("append") || toolName.contains("remove")
+            || toolName.contains("overwrite")
             // 코드·셸 실행
-            || n.contains("execute") || n.contains("exec") || n.contains("eval")
-            || n.contains("shell")   || n.contains("bash") || n.contains("run")
+            || toolName.contains("execute") || toolName.contains("exec") || toolName.contains("eval")
+            || toolName.contains("shell")   || toolName.contains("bash") || toolName.contains("run")
             // 외부 통신·배포
-            || n.contains("send")   || n.contains("deploy") || n.contains("ingest")
+            || toolName.contains("send")   || toolName.contains("deploy") || toolName.contains("ingest")
             // DB 파괴적 작업
-            || n.contains("insert") || n.contains("drop")
-            || n.contains("truncate") || n.contains("purge");
+            || toolName.contains("insert") || toolName.contains("drop")
+            || toolName.contains("truncate") || toolName.contains("purge");
     }
 
     /** 제한 작업 도구이면 restrictedAllowed 플래그를 확인하는 가드로 래핑. */
