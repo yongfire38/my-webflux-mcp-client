@@ -13,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -99,7 +100,7 @@ public class DocumentIngestController {
 
     @PostMapping("/index-local")
     public Mono<Map<String, Object>> indexLocalFile(
-            @org.springframework.web.bind.annotation.RequestParam String filename) {
+            @RequestParam String filename) {
 
         String safeFilename = Paths.get(filename).getFileName().toString();
         if (!isSupportedFile(safeFilename)) {

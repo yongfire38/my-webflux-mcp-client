@@ -24,6 +24,7 @@ import org.springframework.ai.mcp.annotation.spring.ClientMcpAsyncHandlersRegist
 import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpStreamableHttpClientProperties;
 import org.springframework.ai.mcp.client.common.autoconfigure.properties.McpStreamableHttpClientProperties.ConnectionParameters;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.definition.ToolDefinition;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -402,7 +403,7 @@ public class McpServerRegistry {
 
         return new ToolCallback() {
             @Override
-            public org.springframework.ai.tool.definition.ToolDefinition getToolDefinition() {
+            public ToolDefinition getToolDefinition() {
                 return cb.getToolDefinition();
             }
             @Override
