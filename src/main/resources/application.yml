@@ -100,6 +100,10 @@ app:
   # 환경변수 MCP_API_KEY 미설정 시 빈 문자열 → uploadAndIndexDocument 호출 시 서버에서 거부.
   mcp-api-key: "${MCP_API_KEY:}"
 
+  chat:
+    memory:
+      max-messages: 50  # LLM 컨텍스트 윈도우 크기. 초과 시 오래된 메시지가 DB에서 실제 삭제됨. 너무 적으면 세션 제목과 이력 불일치 발생.
+
   rag:
     query-transform:
       translation-enabled: false

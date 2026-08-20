@@ -25,12 +25,15 @@ public class ChatClientConfig {
     @Value("${app.rag.query-transform.translation-target-language:Korean}")
     private String translationTargetLanguage;
 
+    @Value("${app.chat.memory.max-messages:50}")
+    private int chatMemoryMaxMessages;
+
     @Bean
     public ChatMemory chatMemory() {
-        log.info("JDBC 기반 ChatMemory 생성 (PostgreSQL 영속화, 최대 10개 메시지 유지)");
+        log.info("JDBC 기반 ChatMemory 생성 (PostgreSQL 영속화, 최대 {}개 메시지 유지)", chatMemoryMaxMessages);
         return MessageWindowChatMemory.builder()
                 .chatMemoryRepository(chatMemoryRepository)
-                .maxMessages(10)
+                .maxMessages(chatMemoryMaxMessages)
                 .build();
     }
 
